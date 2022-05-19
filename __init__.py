@@ -1,5 +1,5 @@
 """
-hls.__init__.py
+m3u8fu.__init__.py
 """
 
-from .hls import HLS, version, version_number
+from .m3u8fu import M3U8fu, version, version_number
