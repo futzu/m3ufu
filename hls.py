@@ -6,6 +6,39 @@ import json
 import sys
 import threefive
 
+
+"""
+Odd number versions are releases.
+Even number versions are testing builds between releases.
+
+Used to set version in setup.py
+and as an easy way to check which
+version you have installed.
+"""
+
+MAJOR = "0"
+MINOR = "0"
+MAINTAINENCE = "38"
+
+
+def version():
+    """
+    version prints threefives version as a string
+    """
+    return f"{MAJOR}.{MINOR}.{MAINTAINENCE}"
+
+
+def version_number():
+    """
+    version_number returns version as an int.
+    if version() returns 2.3.01
+    version_number will return 2301
+    """
+    return int(f"{MAJOR}{MINOR}{MAINTAINENCE}")
+
+
+
+
 HEADER_TAGS = [
     "#EXTM3U",
     "#EXT-X-VERSION",
