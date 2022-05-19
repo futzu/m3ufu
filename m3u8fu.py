@@ -1,5 +1,5 @@
 """
-hls parser
+ m3u8fu
 """
 
 import json
@@ -204,9 +204,9 @@ class Segment:
         return self.start
 
 
-class HLS:
+class M3U8fu:
     """
-    HLS parser.
+    M3u8 parser.
     """
 
     def __init__(self, arg):
@@ -306,5 +306,5 @@ class HLS:
 if __name__ == "__main__":
     args = sys.argv[1:]
     for arg in args:
-        hls = HLS(arg)
-        hls.decode()
+        fu = M3U8fu(arg)
+        fu.decode()
