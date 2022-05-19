@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 import setuptools
-import hls
+import m3u8fu
 
 with open("README.md", "r") as fh:
     readme = fh.read()
 
 setuptools.setup(
     name="hls",
-    version=hls.version(),
+    version=m3u8fu.version(),
     author="Adrian",
     author_email="spam@iodisco.com",
     description="HLS M3U8 Parser with SCTE-35 Support",
