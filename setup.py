@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
     readme = fh.read()
 
 setuptools.setup(
-    name="hls",
+    name="m3u8fu",
     version=m3u8fu.version(),
     author="Adrian",
     author_email="spam@iodisco.com",
@@ -16,6 +16,9 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/futzu/hls",
     packages=setuptools.find_packages(),
+    install_requires=[
+          'threefive',
+      ],
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
