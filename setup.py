@@ -11,14 +11,14 @@ setuptools.setup(
     version=m3u8fu.version(),
     author="Adrian",
     author_email="spam@iodisco.com",
-    description="HLS M3U8 Parser with SCTE-35 Support",
+    description="M3U8 Parser with SCTE-35 Support",
     long_description=readme,
     long_description_content_type="text/markdown",
-    url="https://github.com/futzu/hls",
+    url="https://github.com/futzu/m3u8fu",
     packages=setuptools.find_packages(),
     install_requires=[
-          'threefive',
-      ],
+        "threefive",
+    ],
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
