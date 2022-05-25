@@ -37,8 +37,6 @@ def version_number():
     return int(f"{MAJOR}{MINOR}{MAINTAINENCE}")
 
 
-
-
 HEADER_TAGS = [
     "#EXTM3U",
     "#EXT-X-VERSION",
@@ -56,7 +54,6 @@ class Segment:
     """
     The Segment class represents a segment
     and associated data
-
     """
 
     def __init__(self, lines, media_uri, start):
@@ -108,7 +105,7 @@ class Segment:
                 strm = threefive.Stream(seg)
                 strm.decode(func=None)
                 if len(strm.start.values()) > 0:
-                    print(strm.start)
+                    # print(strm.start)
                     pts_start = strm.start.popitem()[1]
                 self.start = self.pts = round(pts_start / 90000.0, 6)
             except:
@@ -132,22 +129,61 @@ class Segment:
             try:
                 self.cue = self.tags["#EXT-X-CUE-OUT-CONT"]["SCTE35"]
             finally:
-                # self._do_cue()
                 return
 
-    def _parse_tail(self, tag, tail):
-        while tail:
-            if "=" not in tail:
-                self.tags[tag] = tail
-                return
-            if not tail.endswith('"'):
-                tail, value = tail.rsplit("=", 1)
-            else:
-                try:
-                    tail, value = tail[:-1].rsplit('="', 1)
-                except:
-                    self.tags[tag] = tail.replace('"', "")
-                    return
+    @staticmethod
+    def atoif(value):
+        """
+        atoif ascii to (int|float)
+        """
+        if "." in value:
+            try:
+                value = float(value)
+            finally:
+                return value
+        else:
+            try:
+                value = int(value)
+            finally:
+                return value
+
+    @staticmethod
+    def _strip_last_comma(tail):
+        if tail.endswith(","):
+            tail = tail[:-1]
+        return tail
+
+    def _quoted(self, tag, tail):
+        """
+        _quoted handles quoted attributes
+        """
+        value = None
+        try:
+            tail, value = tail[:-1].rsplit('="', 1)
+        except:
+            value = tail
+            tail = None
+            self.tags[tag] = value.replace('"', "")
+        return tail, value
+
+    def _unquoted(self, tag, tail):
+        """
+        _unquoted handles unquoted attributes
+        """
+        value = None
+        try:
+            tail, value = tail.rsplit("=", 1)
+            value = self.atoif(value)
+        except:
+            self.tags[tag] = tail.replace('"', "")
+            tail = None
+        return tail, value
+
+    def _split_key(self, tail, tag, value):
+        """
+        _split_key splits off the last attribute key
+        """
+        if tail:
             splitup = tail.rsplit(",", 1)
             if len(splitup) == 2:
                 tail, key = splitup
@@ -155,6 +191,21 @@ class Segment:
                 key = splitup[0]
                 tail = None
             self.tags[tag][key] = value
+        return tail
+
+    def _parse_tail(self, tag, tail):
+        while tail:
+            tail = self._strip_last_comma(tail)
+            if "=" not in tail:
+                self.tags[tag] = self.atoif(tail)
+                return
+            if tail[-1:] == '"':
+                tail, value = self._quoted(tag, tail)
+            else:
+                tail, value = self._unquoted(tag, tail)
+            tail = self._split_key(tail, tag, value)
+            if not tail:
+                return
 
     def _parse_tags(self, line):
         """
@@ -165,8 +216,6 @@ class Segment:
         if ":" not in line:
             return
         tag, tail = line.split(":", 1)
-        if tail.endswith(","):
-            tail = tail[:-1]
         self.tags[tag] = {}
         self._parse_tail(tag, tail)
 
@@ -218,10 +267,8 @@ class M3U8fu:
         self.base_uri = ""
         # if arg.startswith("http"):
         based = arg.rsplit("/", 1)
-        print(based)
         if len(based) > 1:
             self.base_uri = f"{based[0]}/"
-        print(self.base_uri)
         self.manifest = None
         self.segments = []
         self.next_expected = 0
@@ -247,7 +294,6 @@ class M3U8fu:
             media = line.split('URI="')[1].split('"')[0]
         if not line.startswith("http"):
             media = self.base_uri + media
-            print(media)
         if media not in self.media_list:
             self.media_list.append(media)
             self.media_list = self.media_list[-200:]
@@ -281,7 +327,6 @@ class M3U8fu:
                     break
 
     def _parse_line(self, line):
-
         self._is_master(line)
         self.chunk.append(line)
         if not line.startswith("#") or line.startswith("#EXT-X-I-FRAME-STREAM-INF"):
