@@ -37,17 +37,137 @@ def version_number():
     return int(f"{MAJOR}{MINOR}{MAINTAINENCE}")
 
 
-HEADER_TAGS = [
+BASIC_TAGS = (
     "#EXTM3U",
     "#EXT-X-VERSION",
-    "#EXT-X-TARGETDURATION",
-    "#EXT-X-PLAYLIST-TYPE",
-    "#EXT-X-MEDIA-SEQUENCE",
-    "#EXT-X-PUBLISHED-TIME",
-    "#EXT-X-DISCONTINUITY-SEQUENCE",
-    "#EXT-X-PROGRAM-DATE-TIME",
+)
+
+MULTI_TAGS = (
     "#EXT-X-INDEPENDENT-SEGMENTS",
-]
+    "#EXT-X-START",
+    "#EXT-X-DEFINE",
+)
+
+MEDIA_TAGS = (
+    "#EXT-X-TARGETDURATION",
+    "#EXT-X-MEDIA-SEQUENCE",
+    "#EXT-X-DISCONTINUITY-SEQUENCE",
+    "#EXT-X-PLAYLIST-TYPE",
+    "#EXT-X-I-FRAMES-ONLY",
+    "#EXT-X-PART-INF",
+    "EXT-X-SERVER-CONTROL",
+)
+
+SEGMENT_TAGS = (
+    "#EXT-X-PUBLISHED-TIME",
+    "#EXT-X-PROGRAM-DATE-TIME",
+)
+
+HEADER_TAGS = BASIC_TAGS + MULTI_TAGS + MEDIA_TAGS + SEGMENT_TAGS
+
+
+class TagParser:
+    @staticmethod
+    def atoif(value):
+        """
+        atoif converts ascii to (int|float)
+        """
+        if "." in value:
+            try:
+                value = float(value)
+            finally:
+                return value
+        else:
+            try:
+                value = int(value)
+            finally:
+                return value
+
+    @staticmethod
+    def _strip_last_comma(tail):
+        if tail.endswith(","):
+            tail = tail[:-1]
+        return tail
+
+    def _quoted(self, tag, tail):
+        """
+        _quoted handles quoted attributes
+        """
+        value = None
+        try:
+            tail, value = tail[:-1].rsplit('="', 1)
+        except:
+            self.tags[tag] = tail.replace('"', "")
+            tail = None
+        return tail, value
+
+    def _unquoted(self, tag, tail):
+        """
+        _unquoted handles unquoted attributes
+        """
+        value = None
+        try:
+            tail, value = tail.rsplit("=", 1)
+            value = self.atoif(value)
+        except:
+            tail = None
+        return tail, value
+
+    def _split_key(self, tail, tag, value):
+        """
+        _split_key splits off the last attribute key
+        """
+        if tail:
+            splitup = tail.rsplit(",", 1)
+            if len(splitup) == 2:
+                tail, key = splitup
+            else:
+                key = splitup[0]
+                tail = None
+            self.tags[tag][key] = value
+        return tail
+
+    def _split_value(self, tag, tail):
+        """
+        _split_value does a right split
+        off tail for the value in a key=value pair.
+        """
+        if tail[-1:] == '"':
+            tail, value = self._quoted(tag, tail)
+        else:
+            tail, value = self._unquoted(tag, tail)
+        return tail, value
+
+    def _split_tail(self, tag, tail):
+        """
+        _split_tail splits key=value pairs from tail.
+        """
+        while tail:
+            tail = self._strip_last_comma(tail)
+            if "=" not in tail:
+                self.tags[tag] = self.atoif(tail)
+                return
+            tail, value = self._split_value(tag, tail)
+            tail = self._split_key(tail, tag, value)
+            if not tail:
+                return
+
+    def _parse_tags(self, line):
+        """
+        _parse_tags parses tags and
+        associated attributes
+        """
+        line = line.replace(" ", "")
+        if ":" not in line:
+            return
+        tag, tail = line.split(":", 1)
+        self.tags[tag] = {}
+        self._split_tail(tag, tail)
+
+    def __init__(self, lines=None):
+        self.tags = {}
+        for line in lines:
+            self._parse_tags(line)
 
 
 class Segment:
@@ -84,7 +204,7 @@ class Segment:
         media_uri = "/".join(ss + u)
         return media_uri
 
-    def _kv_clean(self):
+    def kv_clean(self):
         """
         _kv_clean removes items from a dict if the value is None
         """
@@ -95,17 +215,15 @@ class Segment:
             if isinstance(val, (dict)):
                 val = {k: b2l(v) for k, v in val.items()}
             return val
-
-        return {k: b2l(v) for k, v in vars(self).items() if v not in [None, 0, 0.0]}
+        return {k: b2l(v) for k, v in vars(self).items() if v}
 
     def _get_pts_start(self, seg):
         if not self.start:
-            pts_start = 0.000001
+            pts_start = 0.000000
             try:
                 strm = threefive.Stream(seg)
                 strm.decode(func=None)
                 if len(strm.start.values()) > 0:
-                    # print(strm.start)
                     pts_start = strm.start.popitem()[1]
                 self.start = self.pts = round(pts_start / 90000.0, 6)
             except:
@@ -119,7 +237,9 @@ class Segment:
     def _scte35(self):
         if "#EXT-X-SCTE35" in self.tags:
             self.cue = self.tags["#EXT-X-SCTE35"]["CUE"]
-            self._do_cue()
+            if "CUE-OUT" in self.tags["#EXT-X-SCTE35"]:
+                if self.tags["#EXT-X-SCTE35"]["CUE-OUT"]=="YES":
+                    self._do_cue()
             return
         if "#EXT-OATCLS-SCTE35" in self.tags:
             self.cue = self.tags["#EXT-OATCLS-SCTE35"]
@@ -131,99 +251,11 @@ class Segment:
             finally:
                 return
 
-    @staticmethod
-    def atoif(value):
-        """
-        atoif ascii to (int|float)
-        """
-        if "." in value:
-            try:
-                value = float(value)
-            finally:
-                return value
-        else:
-            try:
-                value = int(value)
-            finally:
-                return value
-
-    @staticmethod
-    def _strip_last_comma(tail):
-        if tail.endswith(","):
-            tail = tail[:-1]
-        return tail
-
-    def _quoted(self, tag, tail):
-        """
-        _quoted handles quoted attributes
-        """
-        value = None
-        try:
-            tail, value = tail[:-1].rsplit('="', 1)
-        except:
-            value = tail
-            tail = None
-            self.tags[tag] = value.replace('"', "")
-        return tail, value
-
-    def _unquoted(self, tag, tail):
-        """
-        _unquoted handles unquoted attributes
-        """
-        value = None
-        try:
-            tail, value = tail.rsplit("=", 1)
-            value = self.atoif(value)
-        except:
-            self.tags[tag] = tail.replace('"', "")
-            tail = None
-        return tail, value
-
-    def _split_key(self, tail, tag, value):
-        """
-        _split_key splits off the last attribute key
-        """
-        if tail:
-            splitup = tail.rsplit(",", 1)
-            if len(splitup) == 2:
-                tail, key = splitup
-            else:
-                key = splitup[0]
-                tail = None
-            self.tags[tag][key] = value
-        return tail
-
-    def _parse_tail(self, tag, tail):
-        while tail:
-            tail = self._strip_last_comma(tail)
-            if "=" not in tail:
-                self.tags[tag] = self.atoif(tail)
-                return
-            if tail[-1:] == '"':
-                tail, value = self._quoted(tag, tail)
-            else:
-                tail, value = self._unquoted(tag, tail)
-            tail = self._split_key(tail, tag, value)
-            if not tail:
-                return
-
-    def _parse_tags(self, line):
-        """
-        _parse_tags parses tags and
-        associated attributes
-        """
-        line = line.replace(" ", "")
-        if ":" not in line:
-            return
-        tag, tail = line.split(":", 1)
-        self.tags[tag] = {}
-        self._parse_tail(tag, tail)
-
     def show(self):
         """
         show prints the segment data as json
         """
-        print(json.dumps(self._kv_clean(), indent=4))
+        print(json.dumps(self.kv_clean(), indent=4))
 
     def _do_cue(self):
         """
@@ -237,19 +269,17 @@ class Segment:
 
     def decode(self):
         # self.media = self._dot_dot(self.media)
-        for line in self._lines:
-            self._parse_tags(line)
-            self._extinf()
-            self._scte35()
-            if not self.start:
-                self._get_pts_start(self.media)
-                self.start = self.pts
+        self.tags = TagParser(self._lines).tags
+        self._extinf()
+        self._scte35()
+        if not self.start:
+            self._get_pts_start(self.media)
+            self.start = self.pts
         if not self.start:
             self.start = 0.0
         self.start = round(self.start, 6)
         self.end = round(self.start + self.duration, 6)
         del self._lines
-        self.show()
         return self.start
 
 
@@ -265,10 +295,10 @@ class M3U8fu:
         self._start = None
         self.chunk = []
         self.base_uri = ""
-        # if arg.startswith("http"):
-        based = arg.rsplit("/", 1)
-        if len(based) > 1:
-            self.base_uri = f"{based[0]}/"
+        if arg.startswith("http"):
+            based = arg.rsplit("/", 1)
+            if len(based) > 1:
+                self.base_uri = f"{based[0]}/"
         self.manifest = None
         self.segments = []
         self.next_expected = 0
@@ -306,25 +336,19 @@ class M3U8fu:
             self.next_expected = self._start + self.hls_time
             self.next_expected += round(segment.duration, 6)
             self.hls_time += segment.duration
+
         self.chunk = []
 
-    def _parse_headers(self):
-        while self.manifest:
-            line = self.manifest.readline()
-            if not line:
-                break
-            line = self._clean_line(line)
-            splitline = line.split(":", 1)
-            if splitline[0] in HEADER_TAGS:
-                val = ""
-                tag = splitline[0]
-                if len(splitline) > 1:
-                    val = splitline[1]
-                self.headers[tag] = val
-            else:
-                if len(line):
-                    self._parse_line(line)
-                    break
+    def _parse_header(self, line):
+        splitline = line.split(":", 1)
+        if splitline[0] in HEADER_TAGS:
+            val = ""
+            tag = splitline[0]
+            if len(splitline) > 1:
+                val = splitline[1]
+            self.headers[tag] = val
+            return True
+        return False
 
     def _parse_line(self, line):
         self._is_master(line)
@@ -336,16 +360,19 @@ class M3U8fu:
     def decode(self):
         while self.reload:
             with threefive.reader(self.m3u8) as self.manifest:
-                self._parse_headers()
-                print(json.dumps(self.headers, indent=4))
                 while self.manifest:
                     line = self.manifest.readline()
                     if not line:
                         break
                     line = self._clean_line(line)
-                    self._parse_line(line)
+                    if not self._parse_header(line):
+                        self._parse_line(line)
                     if "ENDLIST" in line:
-                        return False
+                        self.reload = False
+                jason ={"headers":self.headers,
+                        "media":[seg.kv_clean() for seg in self.segments]}
+                print(json.dumps(jason, indent=4))
+                return jason
 
 
 if __name__ == "__main__":
