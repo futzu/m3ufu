@@ -67,6 +67,36 @@ HEADER_TAGS = BASIC_TAGS + MULTI_TAGS + MEDIA_TAGS + SEGMENT_TAGS
 
 
 class TagParser:
+    """
+    TagParser parses all HLS Tags as of the latest RFC.
+    Custom tags will also be parsed if possible.
+    Parsed tags are stored in the Dict TagParser.tags.
+    TagParser is used by the Segment class.
+
+    Example 1:
+
+        #EXT-X-STREAM-INF:AVERAGE-BANDWIDTH=2030321,BANDWIDTH=2127786,CODECS="avc1.4D401F,mp4a.40.2",RESOLUTION=768x432,CLOSED-CAPTIONS="text"
+
+                TagParser.tags["#EXT-X-STREAM-INF"]= {"CLOSED-CAPTIONS": "text",
+                                                        "RESOLUTION": "768x432",
+                                                        "CODECS": "avc1.4D401F,mp4a.40.2",
+                                                        "BANDWIDTH": 2127786,
+                                                        "AVERAGE-BANDWIDTH": 2030321}
+
+    Example 2:
+
+        #EXT-X-CUE-OUT-CONT:ElapsedTime=21.000,Duration=30,SCTE35=/DAnAAAAAAAAAP/wBQb+AGb/MAARAg9DVUVJAAAAAn+HCQA0AALMua1L
+
+                TagParser.tags["#EXT-X-CUE-OUT-CONT"] = {"SCTE35": "/DAnAAAAAAAAAP/wBQb+AGb/MAARAg9DVUVJAAAAAn+HCQA0AALMua1L",
+                                                        "Duration": 30,
+                                                        "ElapsedTime": 21.0}
+    """
+
+    def __init__(self, lines=None):
+        self.tags = {}
+        for line in lines:
+            self._parse_tags(line)
+
     @staticmethod
     def atoif(value):
         """
@@ -89,29 +119,31 @@ class TagParser:
             tail = tail[:-1]
         return tail
 
-    def _quoted(self, tag, tail):
+    def _parse_tags(self, line):
         """
-        _quoted handles quoted attributes
+        _parse_tags parses tags and
+        associated attributes
         """
-        value = None
-        try:
-            tail, value = tail[:-1].rsplit('="', 1)
-        except:
-            self.tags[tag] = tail.replace('"', "")
-            tail = None
-        return tail, value
+        line = line.replace(" ", "")
+        if ":" not in line:
+            return
+        tag, tail = line.split(":", 1)
+        self.tags[tag] = {}
+        self._split_tail(tag, tail)
 
-    def _unquoted(self, tag, tail):
+    def _split_tail(self, tag, tail):
         """
-        _unquoted handles unquoted attributes
+        _split_tail splits key=value pairs from tail.
         """
-        value = None
-        try:
-            tail, value = tail.rsplit("=", 1)
-            value = self.atoif(value)
-        except:
-            tail = None
-        return tail, value
+        while tail:
+            tail = self._strip_last_comma(tail)
+            if "=" not in tail:
+                self.tags[tag] = self.atoif(tail)
+                return
+            tail, value = self._split_value(tag, tail)
+            tail = self._split_key(tail, tag, value)
+            if not tail:
+                return
 
     def _split_key(self, tail, tag, value):
         """
@@ -138,36 +170,29 @@ class TagParser:
             tail, value = self._unquoted(tag, tail)
         return tail, value
 
-    def _split_tail(self, tag, tail):
+    def _quoted(self, tag, tail):
         """
-        _split_tail splits key=value pairs from tail.
+        _quoted handles quoted attributes
         """
-        while tail:
-            tail = self._strip_last_comma(tail)
-            if "=" not in tail:
-                self.tags[tag] = self.atoif(tail)
-                return
-            tail, value = self._split_value(tag, tail)
-            tail = self._split_key(tail, tag, value)
-            if not tail:
-                return
+        value = None
+        try:
+            tail, value = tail[:-1].rsplit('="', 1)
+        except:
+            self.tags[tag] = tail.replace('"', "")
+            tail = None
+        return tail, value
 
-    def _parse_tags(self, line):
+    def _unquoted(self, tag, tail):
         """
-        _parse_tags parses tags and
-        associated attributes
+        _unquoted handles unquoted attributes
         """
-        line = line.replace(" ", "")
-        if ":" not in line:
-            return
-        tag, tail = line.split(":", 1)
-        self.tags[tag] = {}
-        self._split_tail(tag, tail)
-
-    def __init__(self, lines=None):
-        self.tags = {}
-        for line in lines:
-            self._parse_tags(line)
+        value = None
+        try:
+            tail, value = tail.rsplit("=", 1)
+            value = self.atoif(value)
+        except:
+            tail = None
+        return tail, value
 
 
 class Segment:
@@ -215,6 +240,7 @@ class Segment:
             if isinstance(val, (dict)):
                 val = {k: b2l(v) for k, v in val.items()}
             return val
+
         return {k: b2l(v) for k, v in vars(self).items() if v}
 
     def _get_pts_start(self, seg):
@@ -238,9 +264,14 @@ class Segment:
         if "#EXT-X-SCTE35" in self.tags:
             self.cue = self.tags["#EXT-X-SCTE35"]["CUE"]
             if "CUE-OUT" in self.tags["#EXT-X-SCTE35"]:
-                if self.tags["#EXT-X-SCTE35"]["CUE-OUT"]=="YES":
+                if self.tags["#EXT-X-SCTE35"]["CUE-OUT"] == "YES":
                     self._do_cue()
             return
+        if "#EXT-X-DATERANGE" in self.tags:
+            if "SCTE35-OUT" in self.tags["#EXT-X-DATERANGE"]:
+                self.cue = self.tags["#EXT-X-DATERANGE"]["SCTE35-OUT"]
+                self._do_cue()
+                return
         if "#EXT-OATCLS-SCTE35" in self.tags:
             self.cue = self.tags["#EXT-OATCLS-SCTE35"]
             self._do_cue()
@@ -314,29 +345,39 @@ class M3U8fu:
         return line
 
     def _is_master(self, line):
+        playlist = False
         if "STREAM-INF" in line:
             self.master = True
             self.reload = False
+            if "URI" in line:
+                playlist = line.split('URI="')[1].split('"')[0]
+        return playlist
 
-    def _do_media(self, line):
-        media = line
-        if self.master and "URI" in line:
-            media = line.split('URI="')[1].split('"')[0]
-        if not line.startswith("http"):
-            media = self.base_uri + media
+    def _set_times(self, segment):
+        if not self._start:
+            self._start = segment.start
+        self._start += segment.duration
+        self.next_expected = self._start + self.hls_time
+        self.next_expected += round(segment.duration, 6)
+        self.hls_time += segment.duration
+
+    def _add_media(self, media):
         if media not in self.media_list:
             self.media_list.append(media)
             self.media_list = self.media_list[-200:]
             segment = Segment(self.chunk, media, self._start)
             self.segments.append(segment)
             segment.decode()
-            if not self._start:
-                self._start = segment.start
-            self._start += segment.duration
-            self.next_expected = self._start + self.hls_time
-            self.next_expected += round(segment.duration, 6)
-            self.hls_time += segment.duration
+            self._set_times(segment)
 
+    def _do_media(self, line):
+        media = line
+        if not line.startswith("http"):
+            media = self.base_uri + media
+        playlist = self._is_master(line)
+        if playlist:
+            media = playlist
+        self._add_media(media)
         self.chunk = []
 
     def _parse_header(self, line):
@@ -350,27 +391,31 @@ class M3U8fu:
             return True
         return False
 
-    def _parse_line(self, line):
-        self._is_master(line)
-        self.chunk.append(line)
-        if not line.startswith("#") or line.startswith("#EXT-X-I-FRAME-STREAM-INF"):
-            if len(line):
-                self._do_media(line)
+    def _parse_line(self):
+        line = self.manifest.readline()
+        if not line:
+            return False
+        line = self._clean_line(line)
+        if "ENDLIST" in line:
+            self.reload = False
+        if not self._parse_header(line):
+            self._is_master(line)
+            self.chunk.append(line)
+            if not line.startswith("#") or line.startswith("#EXT-X-I-FRAME-STREAM-INF"):
+                if len(line):
+                    self._do_media(line)
+        return True
 
     def decode(self):
         while self.reload:
             with threefive.reader(self.m3u8) as self.manifest:
                 while self.manifest:
-                    line = self.manifest.readline()
-                    if not line:
+                    if not self._parse_line():
                         break
-                    line = self._clean_line(line)
-                    if not self._parse_header(line):
-                        self._parse_line(line)
-                    if "ENDLIST" in line:
-                        self.reload = False
-                jason ={"headers":self.headers,
-                        "media":[seg.kv_clean() for seg in self.segments]}
+                jason = {
+                    "headers": self.headers,
+                    "media": [seg.kv_clean() for seg in self.segments],
+                }
                 print(json.dumps(jason, indent=4))
                 return jason
 
