@@ -420,7 +420,6 @@ class M3U8fu:
                     "media": [seg.kv_clean() for seg in self.segments],
                 }
                 print(json.dumps(jason, indent=4))
-                return jason
 
 
 if __name__ == "__main__":
