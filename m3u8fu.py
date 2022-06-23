@@ -178,7 +178,8 @@ class TagParser:
         try:
             tail, value = tail[:-1].rsplit('="', 1)
         except:
-            self.tags[tag] = tail.replace('"', "")
+            self.tags[tag]
+            value = tail.replace('"', "")
             tail = None
         return tail, value
 
@@ -263,9 +264,11 @@ class Segment:
     def _scte35(self):
         if "#EXT-X-SCTE35" in self.tags:
             self.cue = self.tags["#EXT-X-SCTE35"]["CUE"]
-            if "CUE-OUT" in self.tags["#EXT-X-SCTE35"]:
-                if self.tags["#EXT-X-SCTE35"]["CUE-OUT"] == "YES":
-                    self._do_cue()
+            #  if "CUE-OUT" in self.tags["#EXT-X-SCTE35"]:
+            #     if self.tags["#EXT-X-SCTE35"]["CUE-OUT"] == "YES":
+            self._do_cue()
+            #  if "#EXT-X-CUE-OUT" in self.tags:
+            #     self._do_cue()
             return
         if "#EXT-X-DATERANGE" in self.tags:
             if "SCTE35-OUT" in self.tags["#EXT-X-DATERANGE"]:
