@@ -1,4 +1,4 @@
-# M3U8-fu
+# M3uFu
 M3U8 Parser with full SCTE-35 Support
 
 * All HLS Tags are Supported.
@@ -10,7 +10,7 @@ M3U8 Parser with full SCTE-35 Support
 
 ### Usage:
 ```
-a@fumatica:~/m3u8fu$ pypy3  m3u8fu.py ../threefive/scte35.m3u8
+a@fumatica:~/m3ufu$ pypy3  m3ufu.py ../threefive/scte35.m3u8
 ```
 ### Returns JSON 
 ```smalltalk
@@ -97,7 +97,7 @@ a@fumatica:~/m3u8fu$ pypy3  m3u8fu.py ../threefive/scte35.m3u8
 *  __Master Playlists are also Supported__
 
 ```smalltalk
-a@fumatica:~/m3u8fu$ pypy3  m3u8fu.py ../threefive/master.m3u8 
+a@fumatica:~/m3u8fu$ pypy3  m3ufu.py ../threefive/master.m3u8 
 {
     "headers": {
         "#EXTM3U": "",
