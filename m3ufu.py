@@ -1,5 +1,5 @@
 """
- m3u8fu
+ m3ufu
 """
 
 import json
@@ -23,7 +23,7 @@ MAINTAINENCE = "39"
 
 def version():
     """
-    version prints threefives version as a string
+    version prints the m3ufu version as a string
     """
     return f"{MAJOR}.{MINOR}.{MAINTAINENCE}"
 
@@ -317,7 +317,7 @@ class Segment:
         return self.start
 
 
-class M3U8fu:
+class M3uFu:
     """
     M3u8 parser.
     """
@@ -425,5 +425,5 @@ class M3U8fu:
 if __name__ == "__main__":
     args = sys.argv[1:]
     for arg in args:
-        fu = M3U8fu(arg)
+        fu = M3uFu(arg)
         fu.decode()
