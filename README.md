@@ -6,6 +6,19 @@ M3U8 Parser with full SCTE-35 Support
 * HTTP(S), Multicast,UDP, and File URIs are Supported
 * Base64, Bytes, and Hex formated SCTE-35 Cues are Supported.
 *   
+### Requires:
+* python3.6+ or pypy3
+* [threefive](https://github.com/futzu/scte35-threefive)
+
+* [new_reader](https://github.com/futzu/new_reader) 
+
+```smalltalk
+python3 -mpip install  threefive new_reader
+
+         # and/or 
+
+pypy3 -mpip install threefive new_reader
+```
 
 
 ### Usage:
