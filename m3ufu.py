@@ -5,7 +5,7 @@
 import json
 import sys
 import threefive
-
+from new_reader import reader
 
 """
 Odd number versions are releases.
@@ -277,6 +277,8 @@ class Segment:
                 return
         if "#EXT-OATCLS-SCTE35" in self.tags:
             self.cue = self.tags["#EXT-OATCLS-SCTE35"]
+            if isinstance(self.cue,dict):
+                self.cue = self.cue.popitem()[0]
             self._do_cue()
             return
         if "#EXT-X-CUE-OUT-CONT" in self.tags:
@@ -297,9 +299,13 @@ class Segment:
         via the threefive.Cue class
         """
         if self.cue:
-            tf = threefive.Cue(self.cue)
-            tf.decode()
-            self.cue_data = tf.get()
+            print(self.cue)
+            try:
+                tf = threefive.Cue(self.cue)
+                tf.decode()
+                self.cue_data = tf.get()
+            except:
+                pass
 
     def decode(self):
         # self.media = self._dot_dot(self.media)
@@ -411,7 +417,7 @@ class M3uFu:
 
     def decode(self):
         while self.reload:
-            with threefive.reader(self.m3u8) as self.manifest:
+            with reader(self.m3u8) as self.manifest:
                 while self.manifest:
                     if not self._parse_line():
                         break
