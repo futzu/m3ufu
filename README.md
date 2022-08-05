@@ -1,23 +1,28 @@
 # M3uFu
-M3U8 Parser with full SCTE-35 Support
+The Most Advanced M3U8 Parser Available.
 
-* All HLS Tags are Supported.
-* Private / Custom Tags are Supported.
-* HTTP(S), Multicast,UDP, and File URIs are Supported
-* Base64, Bytes, and Hex formated SCTE-35 Cues are Supported.
-*   
+* __All HLS Tags are Supported__.
+* __Private / Custom Tags are Supported__.
+* __Master Playlists are Supported__.
+* __HTTP(S), Multicast,UDP, and File Source URIs are Supported__.
+* __Full 2020 SCTE-35 Support__. 
+* __Base64, Bytes, and Hex formated SCTE-35 Cues are Supported__.
+* __Automatic Decryption of AES Encrypted Segments__.
+* __Desegmentation. Playlist Segments can be Reassembled into a Single Mpegts File__.
+
+
 ### Requires:
 * python3.6+ or pypy3
+* pyaes
 * [threefive](https://github.com/futzu/scte35-threefive)
-
 * [new_reader](https://github.com/futzu/new_reader) 
 
 ```smalltalk
-python3 -mpip install  threefive new_reader
+python3 -mpip install  threefive
 
          # and/or 
 
-pypy3 -mpip install threefive new_reader
+pypy3 -mpip install threefive
 ```
 
 
