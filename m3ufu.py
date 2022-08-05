@@ -20,7 +20,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "41"
+MAINTAINENCE = "43"
 
 
 def version():
@@ -199,21 +199,20 @@ class TagParser:
         return tail, value
 
 
-
 class AESDecrypt:
     """
     AESDecrypt decrypts AES encrypted segments
     and returns a file path to the converted segment.
     """
 
-    def __init__(self,seg_uri,key_uri,iv):
+    def __init__(self, seg_uri, key_uri, iv):
         self.seg_uri = seg_uri
         self.key_uri = key_uri
         self.key = None
         self.iv = None
-        self.media =None
+        self.media = None
         self._mk_media()
-        self.iv = int.to_bytes(int(iv,16), 16, byteorder="big")
+        self.iv = int.to_bytes(int(iv, 16), 16, byteorder="big")
         self._aes_get_key()
 
     def _mk_media(self):
@@ -286,7 +285,7 @@ class Segment:
             strm.decode(func=None)
             if len(strm.start.values()) > 0:
                 pts_start = strm.start.popitem()[1]
-                #print("PTS_START",pts_start)
+                # print("PTS_START",pts_start)
             self.start = self.pts = round(pts_start / 90000.0, 6)
         except:
             pass
@@ -301,10 +300,10 @@ class Segment:
             media_file = self.tmp
         return media_file
 
-    def desegment(self,outfile):
+    def desegment(self, outfile):
         try:
             with reader(self.media_file()) as infile:
-                with open(outfile,'ab') as out:
+                with open(outfile, "ab") as out:
                     out.write(infile.read())
         finally:
             return
@@ -329,7 +328,7 @@ class Segment:
                 return
         if "#EXT-OATCLS-SCTE35" in self.tags:
             self.cue = self.tags["#EXT-OATCLS-SCTE35"]
-            if isinstance(self.cue,dict):
+            if isinstance(self.cue, dict):
                 self.cue = self.cue.popitem()[0]
             self._do_cue()
             return
@@ -363,9 +362,8 @@ class Segment:
 
             key_uri = self.tags["#EXT-X-KEY"]["URI"]
             iv = self.tags["#EXT-X-KEY"]["IV"]
-            decryptr = AESDecrypt(self.media,key_uri,iv)
+            decryptr = AESDecrypt(self.media, key_uri, iv)
             self.tmp = decryptr.decrypt()
-
 
     def decode(self):
         self.tags = TagParser(self._lines).tags
@@ -375,15 +373,15 @@ class Segment:
         self._get_pts_start()
         if self.pts:
             self.start = self.pts
-       # if not self.start:
+        # if not self.start:
         #    self.start = 0.0
         if self.start:
             self.start = round(self.start, 6)
             self.end = round(self.start + self.duration, 6)
         del self._lines
-        if self.tmp:
-            os.unlink(self.tmp)
-            del self.tmp
+        # if self.tmp:
+        # os.unlink(self.tmp)
+        #  del self.tmp
         return self.start
 
 
@@ -399,7 +397,7 @@ class M3uFu:
         self._start = None
         self.chunk = []
         self.base_uri = ""
-      #  if arg.startswith("http"):
+        #  if arg.startswith("http"):
         based = arg.rsplit("/", 1)
         if len(based) > 1:
             self.base_uri = f"{based[0]}/"
@@ -431,7 +429,7 @@ class M3uFu:
         if not self._start:
             self._start = segment.start
         if not self._start:
-            self._start=0.0
+            self._start = 0.0
         self._start += segment.duration
         self.next_expected = self._start + self.hls_time
         self.next_expected += round(segment.duration, 6)
@@ -442,16 +440,20 @@ class M3uFu:
             self.media_list.append(media)
             self.media_list = self.media_list[-200:]
             segment = Segment(self.chunk, media, self._start)
-            if self.desegment:
-                outfile = 'outfile.ts'
-                segment.desegment(outfile)
-            self.segments.append(segment)
             segment.decode()
+
+            if self.desegment:
+                outfile = "outfile.ts"
+                segment.desegment(outfile)
+            if segment.tmp:
+                os.unlink(segment.tmp)
+                del segment.tmp
+            self.segments.append(segment)
             self._set_times(segment)
 
     def _do_media(self, line):
         media = line
-       # if not line.startswith("http"):
+        # if not line.startswith("http"):
         media = self.base_uri + media
         playlist = self._is_master(line)
         if playlist:
@@ -496,7 +498,6 @@ class M3uFu:
                     "media": [seg.kv_clean() for seg in self.segments],
                 }
                 print(json.dumps(jason, indent=4))
-
 
 
 if __name__ == "__main__":
