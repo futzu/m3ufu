@@ -3,7 +3,9 @@
 """
 
 import json
+import os
 import sys
+import pyaes
 import threefive
 from new_reader import reader
 
@@ -40,6 +42,7 @@ def version_number():
 BASIC_TAGS = (
     "#EXTM3U",
     "#EXT-X-VERSION",
+    "#EXT-X-ALLOW-CACHE",
 )
 
 MULTI_TAGS = (
@@ -196,6 +199,38 @@ class TagParser:
         return tail, value
 
 
+
+class AESDecrypt:
+    """
+    AESDecrypt decrypts AES encrypted segments
+    and returns a file path to the converted segment.
+    """
+
+    def __init__(self,seg_uri,key_uri,iv):
+        self.seg_uri = seg_uri
+        self.key_uri = key_uri
+        self.key = None
+        self.iv = None
+        self.media =None
+        self._mk_media()
+        self.iv = int.to_bytes(int(iv,16), 16, byteorder="big")
+        self._aes_get_key()
+
+    def _mk_media(self):
+        self.media = "noaes-"
+        self.media += self.seg_uri.rsplit("/", 1)[-1]
+
+    def _aes_get_key(self):
+        with reader(self.key_uri) as quay:
+            self.key = quay.read()
+
+    def decrypt(self):
+        mode = pyaes.AESModeOfOperationCBC(self.key, iv=self.iv)
+        with open(self.media, "wb") as outfile, reader(self.seg_uri) as infile:
+            pyaes.decrypt_stream(mode, infile, outfile)
+        return self.media
+
+
 class Segment:
     """
     The Segment class represents a segment
@@ -212,6 +247,7 @@ class Segment:
         self.cue = False
         self.cue_data = None
         self.tags = {}
+        self.tmp = None
 
     def __repr__(self):
         return str(self.__dict__)
@@ -244,18 +280,34 @@ class Segment:
 
         return {k: b2l(v) for k, v in vars(self).items() if v}
 
-    def _get_pts_start(self, seg):
-        if not self.start:
-            pts_start = 0.000000
-            try:
-                strm = threefive.Stream(seg)
-                strm.decode(func=None)
-                if len(strm.start.values()) > 0:
-                    pts_start = strm.start.popitem()[1]
-                self.start = self.pts = round(pts_start / 90000.0, 6)
-            except:
-                pass
-        self.start = self.pts
+    def _get_pts_start(self):
+        try:
+            strm = threefive.Segment(self.media_file())
+            strm.decode(func=None)
+            if len(strm.start.values()) > 0:
+                pts_start = strm.start.popitem()[1]
+                #print("PTS_START",pts_start)
+            self.start = self.pts = round(pts_start / 90000.0, 6)
+        except:
+            pass
+
+    def media_file(self):
+        """
+        media_file returns self.media
+        or self.tmp if self.media is AES Encrypted
+        """
+        media_file = self.media
+        if self.tmp:
+            media_file = self.tmp
+        return media_file
+
+    def desegment(self,outfile):
+        try:
+            with reader(self.media_file()) as infile:
+                with open(outfile,'ab') as out:
+                    out.write(infile.read())
+        finally:
+            return
 
     def _extinf(self):
         if "#EXTINF" in self.tags:
@@ -299,7 +351,6 @@ class Segment:
         via the threefive.Cue class
         """
         if self.cue:
-            print(self.cue)
             try:
                 tf = threefive.Cue(self.cue)
                 tf.decode()
@@ -307,19 +358,32 @@ class Segment:
             except:
                 pass
 
+    def _chk_aes(self):
+        if "#EXT-X-KEY" in self.tags:
+
+            key_uri = self.tags["#EXT-X-KEY"]["URI"]
+            iv = self.tags["#EXT-X-KEY"]["IV"]
+            decryptr = AESDecrypt(self.media,key_uri,iv)
+            self.tmp = decryptr.decrypt()
+
+
     def decode(self):
-        # self.media = self._dot_dot(self.media)
         self.tags = TagParser(self._lines).tags
+        self._chk_aes()
         self._extinf()
         self._scte35()
-        if not self.start:
-            self._get_pts_start(self.media)
+        self._get_pts_start()
+        if self.pts:
             self.start = self.pts
-        if not self.start:
-            self.start = 0.0
-        self.start = round(self.start, 6)
-        self.end = round(self.start + self.duration, 6)
+       # if not self.start:
+        #    self.start = 0.0
+        if self.start:
+            self.start = round(self.start, 6)
+            self.end = round(self.start + self.duration, 6)
         del self._lines
+        if self.tmp:
+            os.unlink(self.tmp)
+            del self.tmp
         return self.start
 
 
@@ -335,16 +399,17 @@ class M3uFu:
         self._start = None
         self.chunk = []
         self.base_uri = ""
-        if arg.startswith("http"):
-            based = arg.rsplit("/", 1)
-            if len(based) > 1:
-                self.base_uri = f"{based[0]}/"
+      #  if arg.startswith("http"):
+        based = arg.rsplit("/", 1)
+        if len(based) > 1:
+            self.base_uri = f"{based[0]}/"
         self.manifest = None
         self.segments = []
         self.next_expected = 0
         self.master = False
         self.reload = True
         self.headers = {}
+        self.desegment = False
 
     @staticmethod
     def _clean_line(line):
@@ -365,6 +430,8 @@ class M3uFu:
     def _set_times(self, segment):
         if not self._start:
             self._start = segment.start
+        if not self._start:
+            self._start=0.0
         self._start += segment.duration
         self.next_expected = self._start + self.hls_time
         self.next_expected += round(segment.duration, 6)
@@ -375,14 +442,17 @@ class M3uFu:
             self.media_list.append(media)
             self.media_list = self.media_list[-200:]
             segment = Segment(self.chunk, media, self._start)
+            if self.desegment:
+                outfile = 'outfile.ts'
+                segment.desegment(outfile)
             self.segments.append(segment)
             segment.decode()
             self._set_times(segment)
 
     def _do_media(self, line):
         media = line
-        if not line.startswith("http"):
-            media = self.base_uri + media
+       # if not line.startswith("http"):
+        media = self.base_uri + media
         playlist = self._is_master(line)
         if playlist:
             media = playlist
@@ -428,8 +498,10 @@ class M3uFu:
                 print(json.dumps(jason, indent=4))
 
 
+
 if __name__ == "__main__":
     args = sys.argv[1:]
     for arg in args:
         fu = M3uFu(arg)
+        fu.desegment = False
         fu.decode()
