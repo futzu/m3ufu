@@ -18,6 +18,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         "threefive",
+        "pyaes",
     ],
     classifiers=[
         "License :: OSI Approved :: MIT License",
