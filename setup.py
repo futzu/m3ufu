@@ -9,9 +9,9 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="m3u8fu",
     version=m3u8fu.version(),
-    author="Adrian",
+    author="Adrian, The Left Hand of God",
     author_email="spam@iodisco.com",
-    description="M3U8 Parser with SCTE-35 Support",
+    description="The Most Advanced M3U8 Parser Allowed by Law. Includes Auto AES Decryption, SCTE-35 Support, Segment Reassembly et multo magis",
     long_description=readme,
     long_description_content_type="text/markdown",
     url="https://github.com/futzu/m3u8fu",
