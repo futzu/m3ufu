@@ -1,4 +1,4 @@
-[Requires](#requires) | [Usage](#usage) | [Output](#output) | [SCTE-35](#scte-35) | [AES Decrypt](#automatic-aes-decryption) |
+[Requires](#requires) | [Usage](#usage) | [Output](#output) | [SCTE-35](#scte-35) | [AES Decrypt](#automatic-aes-decryption)
 
 
 # M3uFu
