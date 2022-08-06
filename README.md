@@ -1,3 +1,6 @@
+[Requires](#requires) | [Usage](#usage) | [Output](#output) | [SCTE-35](#scte-35) | [AES Decrypt](#automatic-aes-decryption) |
+
+
 # M3uFu
 The Most Advanced M3U8 Parser Available.
 
@@ -30,7 +33,8 @@ pypy3 -mpip install threefive
 ```
 a@fumatica:~/m3ufu$ pypy3  m3ufu.py ../threefive/scte35.m3u8
 ```
-### Returns JSON 
+### Output
+* Returns JSON 
 ```smalltalk
 {
     "headers": {
@@ -50,6 +54,7 @@ a@fumatica:~/m3ufu$ pypy3  m3ufu.py ../threefive/scte35.m3u8
             }
         },
 ```
+### SCTE-35
 * __SCTE-35 Cues are parsed and the data is included__
 ```
         {
@@ -112,7 +117,7 @@ a@fumatica:~/m3ufu$ pypy3  m3ufu.py ../threefive/scte35.m3u8
 ....
 ```
 
-*  __Master Playlists are also Supported__
+###  __Master Playlists are also Supported__
 
 ```smalltalk
 a@fumatica:~/m3u8fu$ pypy3  m3ufu.py ../threefive/master.m3u8 
@@ -245,3 +250,8 @@ a@fumatica:~/m3u8fu$ pypy3  m3ufu.py ../threefive/master.m3u8
         },
  
 ```
+### Automatic AES Decryption
+* When m3ufu detects AES-128,  it automatically decrypts the segment
+  * This is used:
+     * to read PTS from the segment
+     * desegmenting a playlist and combining them into a single 
