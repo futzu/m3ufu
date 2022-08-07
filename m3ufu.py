@@ -1,35 +1,31 @@
-#!/usr/bin/env python3
-
 """
-X9K3
+ m3ufu
 """
 
-import argparse
-import io
+import json
 import os
 import sys
-import time
-from base64 import b64encode
-from collections import deque
+import pyaes
+import threefive
 from new_reader import reader
-from threefive import Stream, Cue
+
+"""
+Odd number versions are releases.
+Even number versions are testing builds between releases.
+
+Used to set version in setup.py
+and as an easy way to check which
+version you have installed.
+"""
 
 MAJOR = "0"
-MINOR = "1"
-MAINTAINENCE = "11"
+MINOR = "0"
+MAINTAINENCE = "43"
 
 
 def version():
     """
-    version prints threefives version as a string
-
-    Odd number versions are releases.
-    Even number versions are testing builds between releases.
-
-    Used to set version in setup.py
-    and as an easy way to check which
-    version you have installed.
-
+    version prints the m3ufu version as a string
     """
     return f"{MAJOR}.{MINOR}.{MAINTAINENCE}"
 
@@ -43,498 +39,470 @@ def version_number():
     return int(f"{MAJOR}{MINOR}{MAINTAINENCE}")
 
 
-class SegData:
+BASIC_TAGS = (
+    "#EXTM3U",
+    "#EXT-X-VERSION",
+    "#EXT-X-ALLOW-CACHE",
+)
+
+MULTI_TAGS = (
+    "#EXT-X-INDEPENDENT-SEGMENTS",
+    "#EXT-X-START",
+    "#EXT-X-DEFINE",
+)
+
+MEDIA_TAGS = (
+    "#EXT-X-TARGETDURATION",
+    "#EXT-X-MEDIA-SEQUENCE",
+    "#EXT-X-DISCONTINUITY-SEQUENCE",
+    "#EXT-X-PLAYLIST-TYPE",
+    "#EXT-X-I-FRAMES-ONLY",
+    "#EXT-X-PART-INF",
+    "EXT-X-SERVER-CONTROL",
+)
+
+SEGMENT_TAGS = (
+    "#EXT-X-PUBLISHED-TIME",
+    "#EXT-X-PROGRAM-DATE-TIME",
+)
+
+HEADER_TAGS = BASIC_TAGS + MULTI_TAGS + MEDIA_TAGS + SEGMENT_TAGS
+
+
+class TagParser:
     """
-    A SegData instance is used to keep hold
-    segment data by X9K3.
+    TagParser parses all HLS Tags as of the latest RFC.
+    Custom tags will also be parsed if possible.
+    Parsed tags are stored in the Dict TagParser.tags.
+    TagParser is used by the Segment class.
+
+    Example 1:
+
+        #EXT-X-STREAM-INF:AVERAGE-BANDWIDTH=2030321,BANDWIDTH=2127786,CODECS="avc1.4D401F,mp4a.40.2",RESOLUTION=768x432,CLOSED-CAPTIONS="text"
+
+                TagParser.tags["#EXT-X-STREAM-INF"]= {"CLOSED-CAPTIONS": "text",
+                                                        "RESOLUTION": "768x432",
+                                                        "CODECS": "avc1.4D401F,mp4a.40.2",
+                                                        "BANDWIDTH": 2127786,
+                                                        "AVERAGE-BANDWIDTH": 2030321}
+
+    Example 2:
+
+        #EXT-X-CUE-OUT-CONT:ElapsedTime=21.000,Duration=30,SCTE35=/DAnAAAAAAAAAP/wBQb+AGb/MAARAg9DVUVJAAAAAn+HCQA0AALMua1L
+
+                TagParser.tags["#EXT-X-CUE-OUT-CONT"] = {"SCTE35": "/DAnAAAAAAAAAP/wBQb+AGb/MAARAg9DVUVJAAAAAn+HCQA0AALMua1L",
+                                                        "Duration": 30,
+                                                        "ElapsedTime": 21.0}
     """
 
-    def __init__(self):
-        self.start_seg_num = 0
-        self.seg_num = 0
-        self.seg_start = None
-        self.seg_stop = None
-        self.seg_time = None
-        self.init_time = time.time()
-        self.seg_uri = None
-        self.diff_total = 0
-
-
-class SCTE35:
-    """
-    A SCTE35 instance is used to hold
-    SCTE35 cue data by X9K3.
-    """
-
-    def __init__(self):
-        self.cue = None
-        self.cue_out = None
-        self.cue_tag = None
-        self.cue_time = None
+    def __init__(self, lines=None):
+        self.tags = {}
+        for line in lines:
+            self._parse_tags(line)
 
     @staticmethod
-    def mk_cue_tag(cue):
+    def atoif(value):
         """
-        mk_cue_tag
+        atoif converts ascii to (int|float)
         """
-        return f'#EXT-X-SCTE35:CUE="{b64encode(cue.bites).decode()}"'
-
-    @staticmethod
-    def is_cue_out(cue):
-        """
-        is_cue_out checks a Cue instance
-        to see if it is a cue_out event.
-        Returns True for a cue_out event.
-        """
-        if cue.command.command_type == 5:
-            if cue.command.out_of_network_indicator:
-                return True
-        return False
-
-    @staticmethod
-    def is_cue_in(cue):
-        """
-        is_cue_in checks a Cue instance
-        to see if it is a cue_in event.
-        Returns True for a cue_in event.
-        """
-        if cue.command.command_type == 5:
-            if not cue.command.out_of_network_indicator:
-                return True
-        return False
-
-    def cue_out_cue_in(self):
-        """
-        cue_out_cue_in adds CUE-OUT
-        and CUE-IN attributes to hls scte35 tags
-        """
-        if self.is_cue_out(self.cue):
-            self.cue_tag += ",CUE-OUT=YES"
-            self.cue_out = "CONT"
-        if self.is_cue_in(self.cue):
-            self.cue_tag += ",CUE-IN=YES"
-            self.cue_out = None
-
-
-class X9K3(Stream):
-    """
-    X9K3 class
-    """
-
-    # sliding window size
-    WINDOW_SLOTS = 5
-    # target segment time.
-    SECONDS = 2
-
-    def __init__(self, tsdata=None, show_null=False):
-        """
-        __init__ for X9K3
-        tsdata is an file or http/https url or multicast url
-        set show_null=False to exclude Splice Nulls
-        """
-        super().__init__(tsdata, show_null)
-        self.active_segment = io.BytesIO()
-        self.active_data = io.StringIO()
-        self.start = False
-        self.scte35 = SCTE35()
-        self.window = []
-        self.window_slot = 0
-        self.header = None
-        self.live = False
-        self.output_dir = "."
-        self.delete = False
-        self.seg = SegData()
-        self.sidecar = None
-        self._parse_args()
-
-    def _parse_args(self):
-        """
-        _parse_args parse command line args
-        """
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            "-i",
-            "--input",
-            default=None,
-            help=""" Input source, like "/home/a/vid.ts"
-                                    or "udp://@235.35.3.5:3535"
-                                    or "https://futzu.com/xaa.ts"
-                                    """,
-        )
-
-        parser.add_argument(
-            "-o",
-            "--output_dir",
-            default=".",
-            help="""Directory for segments and index.m3u8
-                    ( created if it does not exist ) """,
-        )
-
-        parser.add_argument(
-            "-s",
-            "--sidecar",
-            default=None,
-            help="""sidecar file of scte35 cues. each line contains  (PTS, CueString)
-                        Example:  89718.451333, /DARAAAAAAAAAP/wAAAAAHpPv/8=""",
-        )
-
-        parser.add_argument(
-            "-l",
-            "--live",
-            action="store_const",
-            default=False,
-            const=True,
-            help="Flag for a live event ( enables sliding window m3u8 )",
-        )
-
-        parser.add_argument(
-            "-d",
-            "--delete",
-            action="store_const",
-            default=False,
-            const=True,
-            help="delete segments ( enables live mode )",
-        )
-
-        args = parser.parse_args()
-        self._apply_args(args)
-
-
-    def _apply_args(self,args):
-        """
-        _apply_args  uses command line args
-        to set X9K3 instance vars
-        """
-        if args.input:
-            self._tsdata = args.input
+        if "." in value:
+            try:
+                value = float(value)
+            finally:
+                return value
         else:
-            self._tsdata = sys.stdin.buffer
-
-        self.output_dir = args.output_dir
-        if not os.path.isdir(args.output_dir):
-            os.mkdir(args.output_dir)
-
-        self.live = args.live
-
-        self.delete = args.delete
-        if args.delete:
-            self.live = True
-
-        if args.sidecar:
-            self.load_sidecar(args.sidecar)
-        if isinstance(self._tsdata, str):
-            self._tsdata = reader(self._tsdata)
+            try:
+                value = int(value)
+            finally:
+                return value
 
     @staticmethod
-    def mk_uri(head, tail):
-        """
-        mk_uri is used to create local filepaths
-        and resolve backslash or forwardslash seperators
-        """
-        sep = "/"
-        if len(head.split("\\")) > len(head.split("/")):
-            sep = "\\"
-        if not head.endswith(sep):
-            head = head + sep
-        return f"{head}{tail}"
+    def _strip_last_comma(tail):
+        if tail.endswith(","):
+            tail = tail[:-1]
+        return tail
 
-    def _mk_header(self):
+    def _parse_tags(self, line):
         """
-        header generates the m3u8 header lines
+        _parse_tags parses tags and
+        associated attributes
         """
-        m3u = "#EXTM3U"
-        m3u_version = "#EXT-X-VERSION:3"
-        m3u_cache = "#EXT-X-ALLOW-CACHE:YES"
-        headers = [m3u, m3u_version, m3u_cache]
-        if not self.live:
-            play_type = "#EXT-X-PLAYLIST-TYPE:VOD"
-            headers.append(play_type)
-        target = f"#EXT-X-TARGETDURATION:{self.SECONDS+self.SECONDS}"
-        headers.append(target)
-        seq = f"#EXT-X-MEDIA-SEQUENCE:{self.seg.start_seg_num}"
-        headers.append(seq)
-        bumper = ""
-        headers.append(bumper)
-        self.header = "\n".join(headers)
+        line = line.replace(" ", "")
+        if ":" not in line:
+            return
+        tag, tail = line.split(":", 1)
+        self.tags[tag] = {}
+        self._split_tail(tag, tail)
 
-    def load_sidecar(self, file):
+    def _split_tail(self, tag, tail):
         """
-        load_sidecar reads (pts, cue) pairs from
-        the sidecar file and loads them into X9K3.sidecar
+        _split_tail splits key=value pairs from tail.
         """
-        self.sidecar = deque()
-        with reader(file) as sidefile:
-            for line in sidefile:
-                line = line.decode().strip().split("#",1)[0]
-                if len(line):
-                    pts, cue = line.split(",", 1)
-                    self.sidecar.append([float(pts), cue])
+        while tail:
+            tail = self._strip_last_comma(tail)
+            if "=" not in tail:
+                self.tags[tag] = self.atoif(tail)
+                return
+            tail, value = self._split_value(tag, tail)
+            tail = self._split_key(tail, tag, value)
+            if not tail:
+                return
 
-    def chk_sidecar_cues(self, pid):
+    def _split_key(self, tail, tag, value):
         """
-        chk_sidecar_cues checks the insert pts time
-        for the next sidecar cue and inserts the cue if needed.
+        _split_key splits off the last attribute key
         """
-        if self.sidecar:
-            if self.sidecar[0][0] < self.pid2pts(pid):
-                raw = self.sidecar.popleft()[1]
-                self.scte35.cue = Cue(raw)
-                self.scte35.cue.decode()
-                self._chk_cue(pid)
+        if tail:
+            splitup = tail.rsplit(",", 1)
+            if len(splitup) == 2:
+                tail, key = splitup
+            else:
+                key = splitup[0]
+                tail = None
+            self.tags[tag][key] = value
+        return tail
 
-    def chk_stream_cues(self, pkt, pid):
+    def _split_value(self, tag, tail):
         """
-        chk_stream_cues checks scte35 packets
-        and inserts the cue.
+        _split_value does a right split
+        off tail for the value in a key=value pair.
         """
-        self.scte35.cue = self._parse_scte35(pkt, pid)
-        if self.scte35.cue:
-            self._chk_cue(pid)
-
-    def _chk_cue(self, pid):
-        """
-        _chk_cue checks for SCTE-35 cues
-        and inserts a tag at the time
-        the cue is received.
-        """
-        self.scte35.cue.show()
-        print(f"{self.scte35.cue.command.name}")
-        self.active_data.write(f"# {self.scte35.cue.command.name} @ {self.scte35.cue.command.pts_time}\n")
-        if "pts_time" in self.scte35.cue.command.get():
-            self.scte35.cue_time = self.scte35.cue.command.pts_time
-            print(
-                f"Preroll: {round(self.scte35.cue.command.pts_time- self.pid2pts(pid), 6)} "
-            )
+        if tail[-1:] == '"':
+            tail, value = self._quoted(tag, tail)
         else:
-            self.scte35.cue_time = self.pid2pts(pid)
-            self.active_data.write("# Splice Immediate\n")
-        self.scte35.cue_tag = self.scte35.mk_cue_tag(self.scte35.cue)
-        self.scte35.cue_out = None
+            tail, value = self._unquoted(tag, tail)
+        return tail, value
 
-    def _mk_cue_splice_point(self):
+    def _quoted(self, tag, tail):
         """
-        _mk_cue_splice_point inserts a tag
-        at the time specified in the cue.
+        _quoted handles quoted attributes
         """
-        self.scte35.cue_tag = self.scte35.mk_cue_tag(self.scte35.cue)
-        print(f"Splice Point {self.scte35.cue.command.name}@{self.scte35.cue_time}")
-        self.active_data.write(f"# Splice Point @ {self.scte35.cue_time}\n")
-        self.scte35.cue_out_cue_in()
-        if self.scte35.cue_out is None:
-            self.scte35.cue_time = None
-        self.active_data.write(self.scte35.cue_tag + "\n")
-        self.scte35.cue_tag = None
+        value = None
+        try:
+            tail, value = tail[:-1].rsplit('="', 1)
+        except:
+            self.tags[tag]
+            value = tail.replace('"', "")
+            tail = None
+        return tail, value
 
-    def cue_out_continue(self):
+    def _unquoted(self, tag, tail):
         """
-        cue_out_continue ensures that
-        if there is an active SCTE35 cue,
-        the live sliding window of segments
-        has a tag with CUE-OUT=CONT
-
+        _unquoted handles unquoted attributes
         """
-        if self.window_slot > self.WINDOW_SLOTS:
-            self.window_slot = 0
-        if self.scte35.cue_out == "CONT" and self.window_slot == 0:
-            self.scte35.cue_tag = self.scte35.mk_cue_tag(self.scte35.cue)
-            self.scte35.cue_tag += ",CUE-OUT=CONT"
-        self.window_slot += 1
+        value = None
+        try:
+            tail, value = tail.rsplit("=", 1)
+            value = self.atoif(value)
+        except:
+            tail = None
+        return tail, value
 
-    def _mk_segment(self, pid):
-        """
-        _mk_segment cuts hls segments
-        """
-        if self.scte35.cue_time:
-            if self.seg.seg_start < self.scte35.cue_time < self.seg.seg_stop:
-                self.seg.seg_stop = self.scte35.cue_time
-                self._mk_cue_splice_point()
-                self.scte35.cue_time = None
-        now = self.pid2pts(pid)
-        if now >= self.seg.seg_stop:
-            self.seg.seg_stop = now
-            self._write_segment()
-            self._write_manifest()
 
-    def _write_segment(self):
-        """
-        _write_segment creates segment file,
-        writes segment meta data to self.active_data
-        """
-        if not self.start:
-            return
-        seg_file = f"seg{self.seg.seg_num}.ts"
-        self.seg.seg_uri = self.mk_uri(self.output_dir, seg_file)
-        if self.seg.seg_stop:
-            self.seg.seg_time = round(self.seg.seg_stop - self.seg.seg_start, 6)
-            if self.live:
-                self.cue_out_continue()
-            if self.scte35.cue_tag:
-                self.active_data.write(self.scte35.cue_tag + "\n")
-                self.scte35.cue_tag = None
-            with open(self.seg.seg_uri, "wb+") as a_seg:
-                a_seg.write(self.active_segment.getbuffer())
-                a_seg.flush()
-            del self.active_segment
-            self.active_data.write(f"#EXTINF:{self.seg.seg_time},\n")
-            self.active_data.write(seg_file + "\n")
-            self.seg.seg_start = self.seg.seg_stop
-            self.seg.seg_stop += self.SECONDS
-            self.window.append(
-                (self.seg.seg_num, self.seg.seg_uri, self.active_data.getvalue())
-            )
-            self.seg.seg_num += 1
+class AESDecrypt:
+    """
+    AESDecrypt decrypts AES encrypted segments
+    and returns a file path to the converted segment.
+    """
 
-    def _pop_segment(self):
-        if len(self.window) > self.WINDOW_SLOTS:
-            if self.delete:
-                drop = self.window[0][1]
-                print(f"deleting {drop}")
-                os.unlink(drop)
-            self.window = self.window[1:]
+    def __init__(self, seg_uri, key_uri, iv):
+        self.seg_uri = seg_uri
+        self.key_uri = key_uri
+        self.key = None
+        self.iv = None
+        self.media = None
+        self._mk_media()
+        self.iv = int.to_bytes(int(iv, 16), 16, byteorder="big")
+        self._aes_get_key()
 
-    def _open_m3u8(self):
-        m3u8_uri = self.mk_uri(self.output_dir, "index.m3u8")
-        return open(m3u8_uri, "w+", encoding="utf-8")
+    def _mk_media(self):
+        self.media = "noaes-"
+        self.media += self.seg_uri.rsplit("/", 1)[-1]
 
-    def _write_manifest(self):
-        """
-        _write_manifest writes segment meta data from
-        self.window to an m3u8 file
-        """
-        self.stream_diff()
-        if self.live:
-            self._pop_segment()
-            self.seg.start_seg_num = self.window[0][0]
-        with self._open_m3u8() as m3u8:
-            self._mk_header()
-            m3u8.write(self.header)
-            for i in self.window:
-                m3u8.write(i[2])
-            if not self.live:
-                m3u8.write("#EXT-X-ENDLIST")
-        self.active_data = io.StringIO()
-        self.active_segment = io.BytesIO()
+    def _aes_get_key(self):
+        with reader(self.key_uri) as quay:
+            self.key = quay.read()
 
-    def stream_diff(self):
-        """
-        stream diff is the difference
-        between the playback time of the stream
-        and generation of segments by x9k3.
+    def decrypt(self):
+        mode = pyaes.AESModeOfOperationCBC(self.key, iv=self.iv)
+        with open(self.media, "wb") as outfile, reader(self.seg_uri) as infile:
+            pyaes.decrypt_stream(mode, infile, outfile)
+        return self.media
 
-        a segment with a 2 second duration that takes
-        0.5 seconds to generate would have a stream diff of 1.5.
 
-        a negative stream_diff when the stream source is read over a netowork,
-        is a good indication that your network is too slow
-        for the bitrate of the stream.
+class Segment:
+    """
+    The Segment class represents a segment
+    and associated data
+    """
 
-        In live mode, the stream_diff is used to throttle non-live
-        streams so they stay in sync with the sliding window of the m3u8.
-        """
-        rev = "\033[7m \033[1m"
-        res = "\033[00m"
-        now = time.time()
-        gen_time = now - self.seg.init_time
-        if not self.seg.seg_time:
-            self.seg.seg_time = self.SECONDS
-        diff = self.seg.seg_time - gen_time
-        self.seg.diff_total += diff
-        furi = f"{rev}{self.seg.seg_uri}{res}"
-        fstart = f"\tstart: {rev}{self.seg.seg_start- self.seg.seg_time:.6f}{res}"
-        fdur = f"\tduration: {rev}{self.seg.seg_time:.6f}{res}"
-        fdiff = f"\tstream diff: {rev}{round(self.seg.diff_total,6)}{res}"
-        print(f"{furi}{fstart}{fdur}{fdiff}")
-        self.seg.init_time = now
-        if self.live:
-            if self.seg.diff_total > 0:
-                time.sleep(self.seg.seg_time)
+    def __init__(self, lines, media_uri, start):
+        self._lines = lines
+        self.media = media_uri
+        self.pts = None
+        self.start = start
+        self.end = None
+        self.duration = 0
+        self.cue = False
+        self.cue_data = None
+        self.tags = {}
+        self.tmp = None
 
-    def _is_key(self, pkt):
-        """
-        _is_key is key frame detection.
-        """
-
-        def _rai_flag(pkt):
-            """
-            random access indicator
-            """
-            return pkt[5] & 0x40
-
-        def _abc_flags(pkt):
-            """
-            0x80, 0x20, 0x8
-            """
-            return pkt[5] & 0xA8
-
-        def _nal(pkt):
-            """
-            \x65
-            """
-            return b"\x00\x00\x01\x65" in pkt
-
-        if _nal(pkt):
-            return True
-        if self._afc_flag(pkt):
-            if _rai_flag(pkt):
-                return True
-            if _abc_flags(pkt):
-                return True
-
-        return False
+    def __repr__(self):
+        return str(self.__dict__)
 
     @staticmethod
-    def _is_sps(pkt):
+    def _dot_dot(media_uri):
         """
-        _is_sps parses h264 for profile and level
+        dot dot resolves '..' in  urls
         """
-        sps_start = b"\x00\x00\x01\x67"
-        if sps_start in pkt:
-            sps_idx = pkt.index(sps_start)
-            profile = pkt[sps_idx + 4]
-            level = pkt[sps_idx + 6]
-            print(f"Profile {profile} Level {level}")
+        ssu = media_uri.split("/")
+        ss, u = ssu[:-1], ssu[-1:]
+        while ".." in ss:
+            i = ss.index("..")
+            del ss[i]
+            del ss[i - 1]
+        media_uri = "/".join(ss + u)
+        return media_uri
 
-    def _parse_pts(self, pkt, pid):
+    def kv_clean(self):
         """
-        parse pts from pkt and store it
-        in the dict Stream._pid_pts.
+        _kv_clean removes items from a dict if the value is None
         """
-        payload = self._parse_payload(pkt)
-        if len(payload) < 14:
+
+        def b2l(val):
+            if isinstance(val, (list)):
+                val = [b2l(v) for v in val]
+            if isinstance(val, (dict)):
+                val = {k: b2l(v) for k, v in val.items()}
+            return val
+
+        return {k: b2l(v) for k, v in vars(self).items() if v}
+
+    def _get_pts_start(self):
+        try:
+            strm = threefive.Segment(self.media_file())
+            strm.decode(func=None)
+            if len(strm.start.values()) > 0:
+                pts_start = strm.start.popitem()[1]
+                # print("PTS_START",pts_start)
+            self.start = self.pts = round(pts_start / 90000.0, 6)
+        except:
+            pass
+
+    def media_file(self):
+        """
+        media_file returns self.media
+        or self.tmp if self.media is AES Encrypted
+        """
+        media_file = self.media
+        if self.tmp:
+            media_file = self.tmp
+        return media_file
+
+    def desegment(self, outfile):
+        try:
+            with reader(self.media_file()) as infile:
+                with open(outfile, "ab") as out:
+                    out.write(infile.read())
+        finally:
             return
-        if self._pts_flag(payload):
-            pts = ((payload[9] >> 1) & 7) << 30
-            pts |= payload[10] << 22
-            pts |= (payload[11] >> 1) << 15
-            pts |= payload[12] << 7
-            pts |= payload[13] >> 1
-            prgm = self.pid2prgm(pid)
-            self._prgm_pts[prgm] = pts
-            if not self.seg.seg_start:
-                self.seg.seg_start = self.as_90k(pts)
-                self.seg.seg_stop = self.seg.seg_start + self.SECONDS
 
-    def _parse(self, pkt):
+    def _extinf(self):
+        if "#EXTINF" in self.tags:
+            self.duration = round(float(self.tags["#EXTINF"]), 6)
+
+    def _scte35(self):
+        if "#EXT-X-SCTE35" in self.tags:
+            self.cue = self.tags["#EXT-X-SCTE35"]["CUE"]
+            #  if "CUE-OUT" in self.tags["#EXT-X-SCTE35"]:
+            #     if self.tags["#EXT-X-SCTE35"]["CUE-OUT"] == "YES":
+            self._do_cue()
+            #  if "#EXT-X-CUE-OUT" in self.tags:
+            #     self._do_cue()
+            return
+        if "#EXT-X-DATERANGE" in self.tags:
+            if "SCTE35-OUT" in self.tags["#EXT-X-DATERANGE"]:
+                self.cue = self.tags["#EXT-X-DATERANGE"]["SCTE35-OUT"]
+                self._do_cue()
+                return
+        if "#EXT-OATCLS-SCTE35" in self.tags:
+            self.cue = self.tags["#EXT-OATCLS-SCTE35"]
+            if isinstance(self.cue, dict):
+                self.cue = self.cue.popitem()[0]
+            self._do_cue()
+            return
+        if "#EXT-X-CUE-OUT-CONT" in self.tags:
+            try:
+                self.cue = self.tags["#EXT-X-CUE-OUT-CONT"]["SCTE35"]
+            finally:
+                return
+
+    def show(self):
         """
-        _parse parses mpegts and
-        writes the packet to self.active_segment.
+        show prints the segment data as json
         """
-        pid = self._parse_info(pkt)
-        self.chk_sidecar_cues(pid)
-        if pid in self._pids["scte35"]:
-            self.chk_stream_cues(pkt, pid)
-        # self._is_sps(pkt)
-        if self._pusi_flag(pkt):
-            self._parse_pts(pkt, pid)
-            if self._is_key(pkt):
-                self._mk_segment(pid)
-                if not self.start:
-                    self.start = True
+        print(json.dumps(self.kv_clean(), indent=4))
+
+    def _do_cue(self):
+        """
+        _do_cue parses a SCTE-35 encoded string
+        via the threefive.Cue class
+        """
+        if self.cue:
+            try:
+                tf = threefive.Cue(self.cue)
+                tf.decode()
+                self.cue_data = tf.get()
+            except:
+                pass
+
+    def _chk_aes(self):
+        if "#EXT-X-KEY" in self.tags:
+
+            key_uri = self.tags["#EXT-X-KEY"]["URI"]
+            iv = self.tags["#EXT-X-KEY"]["IV"]
+            decryptr = AESDecrypt(self.media, key_uri, iv)
+            self.tmp = decryptr.decrypt()
+
+    def decode(self):
+        self.tags = TagParser(self._lines).tags
+        self._chk_aes()
+        self._extinf()
+        self._scte35()
+        self._get_pts_start()
+        if self.pts:
+            self.start = self.pts
+        # if not self.start:
+        #    self.start = 0.0
         if self.start:
-            self.active_segment.write(pkt)
+            self.start = round(self.start, 6)
+            self.end = round(self.start + self.duration, 6)
+        del self._lines
+        # if self.tmp:
+        # os.unlink(self.tmp)
+        #  del self.tmp
+        return self.start
+
+
+class M3uFu:
+    """
+    M3u8 parser.
+    """
+
+    def __init__(self, arg):
+        self.m3u8 = arg
+        self.hls_time = 0.0
+        self.media_list = []
+        self._start = None
+        self.chunk = []
+        self.base_uri = ""
+        #  if arg.startswith("http"):
+        based = arg.rsplit("/", 1)
+        if len(based) > 1:
+            self.base_uri = f"{based[0]}/"
+        self.manifest = None
+        self.segments = []
+        self.next_expected = 0
+        self.master = False
+        self.reload = True
+        self.headers = {}
+        self.desegment = False
+
+    @staticmethod
+    def _clean_line(line):
+        if isinstance(line, bytes):
+            line = line.decode(errors="ignore")
+            line = line.replace("\n", "").replace("\r", "")
+        return line
+
+    def _is_master(self, line):
+        playlist = False
+        if "STREAM-INF" in line:
+            self.master = True
+            self.reload = False
+            if "URI" in line:
+                playlist = line.split('URI="')[1].split('"')[0]
+        return playlist
+
+    def _set_times(self, segment):
+        if not self._start:
+            self._start = segment.start
+        if not self._start:
+            self._start = 0.0
+        self._start += segment.duration
+        self.next_expected = self._start + self.hls_time
+        self.next_expected += round(segment.duration, 6)
+        self.hls_time += segment.duration
+
+    def _add_media(self, media):
+        if media not in self.media_list:
+            self.media_list.append(media)
+            self.media_list = self.media_list[-200:]
+            segment = Segment(self.chunk, media, self._start)
+            segment.decode()
+
+            if self.desegment:
+                outfile = "outfile.ts"
+                segment.desegment(outfile)
+            if segment.tmp:
+                os.unlink(segment.tmp)
+                del segment.tmp
+            self.segments.append(segment)
+            self._set_times(segment)
+
+    def _do_media(self, line):
+        media = line
+        # if not line.startswith("http"):
+        media = self.base_uri + media
+        playlist = self._is_master(line)
+        if playlist:
+            media = playlist
+        self._add_media(media)
+        self.chunk = []
+
+    def _parse_header(self, line):
+        splitline = line.split(":", 1)
+        if splitline[0] in HEADER_TAGS:
+            val = ""
+            tag = splitline[0]
+            if len(splitline) > 1:
+                val = splitline[1]
+            self.headers[tag] = val
+            return True
+        return False
+
+    def _parse_line(self):
+        line = self.manifest.readline()
+        if not line:
+            return False
+        line = self._clean_line(line)
+        if "ENDLIST" in line:
+            self.reload = False
+        if not self._parse_header(line):
+            self._is_master(line)
+            self.chunk.append(line)
+            if not line.startswith("#") or line.startswith("#EXT-X-I-FRAME-STREAM-INF"):
+                if len(line):
+                    self._do_media(line)
+        return True
+
+    def decode(self):
+        while self.reload:
+            with reader(self.m3u8) as self.manifest:
+                while self.manifest:
+                    if not self._parse_line():
+                        break
+                jason = {
+                    "headers": self.headers,
+                    "media": [seg.kv_clean() for seg in self.segments],
+                }
+                print(json.dumps(jason, indent=4))
 
 
 if __name__ == "__main__":
-
-    x9k3 = X9K3()
-    x9k3.decode()
+    args = sys.argv[1:]
+    for arg in args:
+        fu = M3uFu(arg)
+        fu.desegment = False
+        fu.decode()
