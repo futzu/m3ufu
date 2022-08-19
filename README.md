@@ -30,9 +30,9 @@ pypy3 -mpip install threefive
 
 
 ### Usage:
-```
-a@fumatica:~/m3ufu$ pypy3  m3ufu.py ../threefive/scte35.m3u8
-```
+![image](https://user-images.githubusercontent.com/52701496/185528328-73a0bdb2-ce1d-4c43-b8a9-285094394496.png)
+
+
 ### Output
 * Returns JSON 
 ```smalltalk
