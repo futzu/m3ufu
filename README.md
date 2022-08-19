@@ -14,9 +14,10 @@ The Most Advanced M3U8 Parser Available.
 * __Desegmentation. Playlist Segments can be Reassembled into a Single Mpegts File__.
 
 
-### Requires:
+### `Requires`:
 * python3.6+ or pypy3
 
+### `Install`:
 ```smalltalk
 python3 -mpip install  m3ufu
 
@@ -26,11 +27,16 @@ pypy3 -mpip install m3ufu
 ```
 
 
-### Usage:
+### `Usage`:
 ![image](https://user-images.githubusercontent.com/52701496/185528328-73a0bdb2-ce1d-4c43-b8a9-285094394496.png)
 
+### `Automatic AES Decryption`
+* When m3ufu detects AES-128,  it automatically decrypts the segment
+  * This is used:
+     * to read PTS from the segment
+     * desegmenting a playlist and combining them into a single mpegts file
 
-### Output
+### `Output`:
 * Returns JSON 
 ```smalltalk
 {
@@ -247,8 +253,3 @@ a@fumatica:~/m3u8fu$ pypy3  m3ufu.py ../threefive/master.m3u8
         },
  
 ```
-### Automatic AES Decryption
-* When m3ufu detects AES-128,  it automatically decrypts the segment
-  * This is used:
-     * to read PTS from the segment
-     * desegmenting a playlist and combining them into a single 
