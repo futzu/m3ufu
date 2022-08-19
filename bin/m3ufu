@@ -1,0 +1,5 @@
+#!/usr/bin/env python3
+
+from m3ufu import cli 
+
+cli()
