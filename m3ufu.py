@@ -1,7 +1,7 @@
 """
  m3ufu
 """
-
+import argparse
 import json
 import os
 import sys
@@ -20,7 +20,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "43"
+MAINTAINENCE = "45"
 
 
 def version():
@@ -28,15 +28,6 @@ def version():
     version prints the m3ufu version as a string
     """
     return f"{MAJOR}.{MINOR}.{MAINTAINENCE}"
-
-
-def version_number():
-    """
-    version_number returns version as an int.
-    if version() returns 2.3.01
-    version_number will return 2301
-    """
-    return int(f"{MAJOR}{MINOR}{MAINTAINENCE}")
 
 
 BASIC_TAGS = (
@@ -390,17 +381,13 @@ class M3uFu:
     M3u8 parser.
     """
 
-    def __init__(self, arg):
-        self.m3u8 = arg
+    def __init__(self):
+        self.m3u8 = None
         self.hls_time = 0.0
         self.media_list = []
         self._start = None
         self.chunk = []
         self.base_uri = ""
-        #  if arg.startswith("http"):
-        based = arg.rsplit("/", 1)
-        if len(based) > 1:
-            self.base_uri = f"{based[0]}/"
         self.manifest = None
         self.segments = []
         self.next_expected = 0
@@ -408,6 +395,73 @@ class M3uFu:
         self.reload = True
         self.headers = {}
         self.desegment = False
+        self.outfile = 'outfile.ts'
+        self._parse_args()
+        if self.desegment and os.path.exists(self.outfile):
+            os.unlink(self.outfile)
+        if self.m3u8.startswith("http"):
+            based = self.m3u8.rsplit("/", 1)
+            if len(based) > 1:
+                self.base_uri = f"{based[0]}/"
+
+
+    def _parse_args(self):
+        """
+        _parse_args parse command line args
+        """
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "-i",
+            "--input",
+            default=None,
+            help=""" Input source, like "/home/a/vid.ts"
+                                    or "udp://@235.35.3.5:3535"
+                                    or "https://futzu.com/xaa.ts"
+                                    """,
+        )
+
+        parser.add_argument(
+            "-d",
+            "--desegment",
+            action="store_const",
+            default=False,
+            const=True,
+            help=""" download and reassemble segments. """,
+        )
+
+        parser.add_argument(
+            "-v",
+            "--version",
+            action="store_const",
+            default=False,
+            const=True,
+            help="Show version",
+        )
+        args = parser.parse_args()
+        self._apply_args(args)
+
+    @staticmethod
+    def _args_version(args):
+        if args.version:
+            print(version())
+            sys.exit()
+
+    def _args_desegment(self,args):
+        self.desegment = args.desegment
+
+    def _args_input(self, args):
+        if args.input:
+            self.m3u8 = args.input
+
+
+    def _apply_args(self, args):
+        """
+        _apply_args  uses command line args
+        to set m3ufu instance vars
+        """
+        self._args_version(args)
+        self._args_input(args)
+        self._args_desegment(args)
 
     @staticmethod
     def _clean_line(line):
@@ -441,10 +495,8 @@ class M3uFu:
             self.media_list = self.media_list[-200:]
             segment = Segment(self.chunk, media, self._start)
             segment.decode()
-
             if self.desegment:
-                outfile = "outfile.ts"
-                segment.desegment(outfile)
+                segment.desegment(self.outfile)
             if segment.tmp:
                 os.unlink(segment.tmp)
                 del segment.tmp
@@ -499,10 +551,10 @@ class M3uFu:
                 }
                 print(json.dumps(jason, indent=4))
 
+def cli():
+    fu = M3uFu()
+    fu.decode()
+
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    for arg in args:
-        fu = M3uFu(arg)
-        fu.desegment = False
-        fu.decode()
+    cli()
