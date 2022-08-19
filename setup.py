@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import setuptools
-import m3u8fu
+import m3ufu
 
 with open("README.md", "r") as fh:
     readme = fh.read()
