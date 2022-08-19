@@ -57,8 +57,8 @@ pypy3 -mpip install m3ufu
             }
         },
 ```
-### SCTE-35
-* __SCTE-35 Cues are parsed and the data is included__
+### `SCTE-35`
+* SCTE-35 Cues are parsed and the data is included
 ```
         {
             "media": "seg70.ts",
