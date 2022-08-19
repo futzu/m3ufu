@@ -1,17 +1,17 @@
-[Requires](#requires) | [Usage](#usage) | [Output](#output) | [SCTE-35](#scte-35) | [AES Decrypt](#automatic-aes-decryption)
+[Requires](#requires) | [Install](#install) | [Usage](#usage) | [Output](#output) | [SCTE-35](#scte-35) | [AES Decrypt](#automatic-aes-decryption)
 
 
 # M3uFu
 The Most Advanced M3U8 Parser Available.
 
-* __All HLS Tags are Supported__.
-* __Private / Custom Tags are Supported__.
-* __Master Playlists are Supported__.
-* __HTTP(S), Multicast,UDP, and File Source URIs are Supported__.
-* __Full 2020 SCTE-35 Support__. 
-* __Base64, Bytes, and Hex formated SCTE-35 Cues are Supported__.
-* __Automatic Decryption of AES Encrypted Segments__.
-* __Desegmentation. Playlist Segments can be Reassembled into a Single Mpegts File__.
+* All HLS Tags are Supported.
+* Private / Custom Tags are Supported.
+* Master Playlists are Supported.
+* HTTP(S), Multicast,UDP, and File Source URIs are Supported.
+* Full 2020 SCTE-35 Support. 
+* Base64, Bytes, and Hex formated SCTE-35 Cues are Supported.
+* Automatic Decryption of AES Encrypted Segments.
+* Desegmentation. Playlist Segments can be Reassembled into a Single Mpegts File.
 
 
 ### `Requires`:
