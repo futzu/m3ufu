@@ -7,8 +7,8 @@ with open("README.md", "r") as fh:
     readme = fh.read()
 
 setuptools.setup(
-    name="m3u8fu",
-    version=m3u8fu.version(),
+    name="m3ufu",
+    version=m3ufu.version(),
     author="Adrian",
     author_email="spam@iodisco.com",
     description="M3U8 Parser with SCTE-35 Support",
@@ -21,7 +21,6 @@ setuptools.setup(
     install_requires=[
         "threefive",
         "new_reader",
-        "pyaes",
     ],
     classifiers=[
         "License :: OSI Approved :: MIT License",
