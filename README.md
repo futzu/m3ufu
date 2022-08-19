@@ -16,16 +16,13 @@ The Most Advanced M3U8 Parser Available.
 
 ### Requires:
 * python3.6+ or pypy3
-* pyaes
-* [threefive](https://github.com/futzu/scte35-threefive)
-* [new_reader](https://github.com/futzu/new_reader) 
 
 ```smalltalk
-python3 -mpip install  threefive
+python3 -mpip install  m3ufu
 
          # and/or 
 
-pypy3 -mpip install threefive
+pypy3 -mpip install m3ufu
 ```
 
 
