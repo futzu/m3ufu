@@ -19,6 +19,7 @@ setuptools.setup(
     py_modules=["m3ufu"],
     scripts=['bin/m3ufu'],
     install_requires=[
+        "pyaes",
         "threefive",
         "new_reader",
     ],
