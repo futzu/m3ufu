@@ -3,6 +3,7 @@
 
 # M3uFu
 The Most Advanced M3U8 Parser Available.
+![image](https://user-images.githubusercontent.com/52701496/186024938-47ce6e7c-3763-4c11-b01b-8773b4101fb0.png)
 
 * All HLS Tags are Supported.
 * Private / Custom Tags are Supported.
