@@ -5,7 +5,6 @@
 The Most Advanced M3U8 Parser Available.
 
 
-![image](https://user-images.githubusercontent.com/52701496/186024938-47ce6e7c-3763-4c11-b01b-8773b4101fb0.png)
 
 * All HLS Tags are Supported.
 * Private / Custom Tags are Supported.
@@ -28,6 +27,7 @@ python3 -mpip install  m3ufu
 
 pypy3 -mpip install m3ufu
 ```
+![image](https://user-images.githubusercontent.com/52701496/191659288-744df7c5-c7ba-44f8-a5c5-356c5f414f5e.png)
 
 
 ### `Usage`:
