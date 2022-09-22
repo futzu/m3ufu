@@ -20,7 +20,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "45"
+MAINTAINENCE = "47"
 
 
 def version():
@@ -136,21 +136,20 @@ class TagParser:
                 return
             tail, value = self._split_value(tag, tail)
             tail = self._split_key(tail, tag, value)
-            if not tail:
-                return
+        return
 
     def _split_key(self, tail, tag, value):
         """
         _split_key splits off the last attribute key
         """
-        if tail:
-            splitup = tail.rsplit(",", 1)
-            if len(splitup) == 2:
-                tail, key = splitup
-            else:
-                key = splitup[0]
-                tail = None
-            self.tags[tag][key] = value
+        #   if tail:
+        splitup = tail.rsplit(",", 1)
+        if len(splitup) == 2:
+            tail, key = splitup
+        else:
+            key = splitup[0]
+            tail = None
+        self.tags[tag][key] = value
         return tail
 
     def _split_value(self, tag, tail):
@@ -299,6 +298,11 @@ class Segment:
         finally:
             return
 
+    def cue2sidecar(self, sidecar):
+        if self.cue:
+            with open(sidecar, "w+") as out:
+                out.write(f"{self.start},{self.cue}\n")
+
     def _extinf(self):
         if "#EXTINF" in self.tags:
             self.duration = round(float(self.tags["#EXTINF"]), 6)
@@ -306,11 +310,11 @@ class Segment:
     def _scte35(self):
         if "#EXT-X-SCTE35" in self.tags:
             self.cue = self.tags["#EXT-X-SCTE35"]["CUE"]
-            #  if "CUE-OUT" in self.tags["#EXT-X-SCTE35"]:
-            #     if self.tags["#EXT-X-SCTE35"]["CUE-OUT"] == "YES":
-            self._do_cue()
-            #  if "#EXT-X-CUE-OUT" in self.tags:
-            #     self._do_cue()
+            if "CUE-OUT" in self.tags["#EXT-X-SCTE35"]:
+                if self.tags["#EXT-X-SCTE35"]["CUE-OUT"] == "YES":
+                    self._do_cue()
+            if "#EXT-X-CUE-OUT" in self.tags:
+                self._do_cue()
             return
         if "#EXT-X-DATERANGE" in self.tags:
             if "SCTE35-OUT" in self.tags["#EXT-X-DATERANGE"]:
@@ -329,12 +333,6 @@ class Segment:
             finally:
                 return
 
-    def show(self):
-        """
-        show prints the segment data as json
-        """
-        print(json.dumps(self.kv_clean(), indent=4))
-
     def _do_cue(self):
         """
         _do_cue parses a SCTE-35 encoded string
@@ -350,11 +348,12 @@ class Segment:
 
     def _chk_aes(self):
         if "#EXT-X-KEY" in self.tags:
-
-            key_uri = self.tags["#EXT-X-KEY"]["URI"]
-            iv = self.tags["#EXT-X-KEY"]["IV"]
-            decryptr = AESDecrypt(self.media, key_uri, iv)
-            self.tmp = decryptr.decrypt()
+            if "URI" in self.tags["#EXT-X-KEY"]:
+                key_uri = self.tags["#EXT-X-KEY"]["URI"]
+                if "IV" in self.tags["#EXT-X-KEY"]:
+                    iv = self.tags["#EXT-X-KEY"]["IV"]
+                    decryptr = AESDecrypt(self.media, key_uri, iv)
+                    self.tmp = decryptr.decrypt()
 
     def decode(self):
         self.tags = TagParser(self._lines).tags
@@ -364,15 +363,12 @@ class Segment:
         self._get_pts_start()
         if self.pts:
             self.start = self.pts
-        # if not self.start:
-        #    self.start = 0.0
         if self.start:
             self.start = round(self.start, 6)
             self.end = round(self.start + self.duration, 6)
         del self._lines
-        # if self.tmp:
-        # os.unlink(self.tmp)
-        #  del self.tmp
+        print(json.dumps(self.kv_clean(), indent=4))
+
         return self.start
 
 
@@ -395,7 +391,8 @@ class M3uFu:
         self.reload = True
         self.headers = {}
         self.desegment = False
-        self.outfile = 'outfile.ts'
+        self.outfile = "outfile.ts"
+        self.sidecar = "sidecar.txt"
         self._parse_args()
         if self.desegment and os.path.exists(self.outfile):
             os.unlink(self.outfile)
@@ -403,7 +400,6 @@ class M3uFu:
             based = self.m3u8.rsplit("/", 1)
             if len(based) > 1:
                 self.base_uri = f"{based[0]}/"
-
 
     def _parse_args(self):
         """
@@ -446,13 +442,12 @@ class M3uFu:
             print(version())
             sys.exit()
 
-    def _args_desegment(self,args):
+    def _args_desegment(self, args):
         self.desegment = args.desegment
 
     def _args_input(self, args):
         if args.input:
             self.m3u8 = args.input
-
 
     def _apply_args(self, args):
         """
@@ -496,16 +491,18 @@ class M3uFu:
             segment = Segment(self.chunk, media, self._start)
             segment.decode()
             if self.desegment:
+                print(self.hls_time, segment.pts)
                 segment.desegment(self.outfile)
+                segment.cue2sidecar(self.sidecar)
             if segment.tmp:
                 os.unlink(segment.tmp)
                 del segment.tmp
+
             self.segments.append(segment)
             self._set_times(segment)
 
     def _do_media(self, line):
         media = line
-        # if not line.startswith("http"):
         media = self.base_uri + media
         playlist = self._is_master(line)
         if playlist:
@@ -545,11 +542,9 @@ class M3uFu:
                 while self.manifest:
                     if not self._parse_line():
                         break
-                jason = {
-                    "headers": self.headers,
-                    "media": [seg.kv_clean() for seg in self.segments],
-                }
-                print(json.dumps(jason, indent=4))
+
+                print(json.dumps(self.headers, indent=4))
+
 
 def cli():
     fu = M3uFu()
