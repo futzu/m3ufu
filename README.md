@@ -1,4 +1,4 @@
-[Requires](#requires) | [Install](#install) | [Usage](#usage) | [Output](#output) | [SCTE-35](#scte-35) | [AES Decrypt](#automatic-aes-decryption)
+[Requires](#requires) | [Install](#install) | [Usage](#usage) | [Output](#output) | [SCTE-35](#scte-35) | [AES Decrypt](#automatic-aes-decryption)[super kabuki](https://github.com/futzu/threefive/blob/master/superkabuki.md)
 
 
 # M3uFu
