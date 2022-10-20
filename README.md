@@ -38,7 +38,7 @@ options:
                         Input source, like "/home/a/vid.ts" or "udp://@235.35.3.5:3535" or
                         "https://futzu.com/xaa.ts"
   -o OUTFILE, --outfile OUTFILE
-                        download and reassemble segments.Write to outfile. SCTE35 cues are
+                        download and reassemble segments. Write to outfile. SCTE35 cues are
                         written to sidecar.txt
   -v, --version         Show version
 
