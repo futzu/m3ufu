@@ -27,11 +27,22 @@ python3 -mpip install  m3ufu
 
 pypy3 -mpip install m3ufu
 ```
-![image](https://user-images.githubusercontent.com/52701496/191659288-744df7c5-c7ba-44f8-a5c5-356c5f414f5e.png)
-
 
 ### `Usage`:
-![image](https://user-images.githubusercontent.com/52701496/185528328-73a0bdb2-ce1d-4c43-b8a9-285094394496.png)
+```lua
+usage: m3ufu.py [-h] [-i INPUT] [-o OUTFILE] [-v]
+
+options:
+  -h, --help            show this help message and exit
+  -i INPUT, --input INPUT
+                        Input source, like "/home/a/vid.ts" or "udp://@235.35.3.5:3535" or
+                        "https://futzu.com/xaa.ts"
+  -o OUTFILE, --outfile OUTFILE
+                        download and reassemble segments.Write to outfile. SCTE35 cues are
+                        written to sidecar.txt
+  -v, --version         Show version
+
+```
 
 ### `Automatic AES Decryption`
 * When m3ufu detects AES-128,  it automatically decrypts the segment
