@@ -20,7 +20,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "47"
+MAINTAINENCE = "49"
 
 
 def version():
@@ -367,7 +367,6 @@ class Segment:
             self.start = round(self.start, 6)
             self.end = round(self.start + self.duration, 6)
         del self._lines
-        print(json.dumps(self.kv_clean(), indent=4))
 
         return self.start
 
@@ -543,7 +542,12 @@ class M3uFu:
                     if not self._parse_line():
                         break
 
-                print(json.dumps(self.headers, indent=4))
+                jason = {
+                    "headers": self.headers,
+                    "media": [seg.kv_clean() for seg in self.segments],
+                }
+                print(json.dumps(jason, indent=4))
+
 
 
 def cli():
