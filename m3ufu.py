@@ -389,8 +389,7 @@ class M3uFu:
         self.master = False
         self.reload = True
         self.headers = {}
-        self.desegment = False
-        self.outfile = "outfile.ts"
+        self.outfile = None
         self.sidecar = "sidecar.txt"
         self._parse_args()
         if self.desegment and os.path.exists(self.outfile):
@@ -416,12 +415,10 @@ class M3uFu:
         )
 
         parser.add_argument(
-            "-d",
-            "--desegment",
-            action="store_const",
-            default=False,
-            const=True,
-            help=""" download and reassemble segments. """,
+            "-o",
+            "--outfile",
+            default=None,
+            help=" download and reassemble segments.Write to outfile. SCTE35 cues are written to sidecar.txt ",
         )
 
         parser.add_argument(
@@ -442,7 +439,7 @@ class M3uFu:
             sys.exit()
 
     def _args_desegment(self, args):
-        self.desegment = args.desegment
+        self.outfile = args.outfile
 
     def _args_input(self, args):
         if args.input:
@@ -489,7 +486,7 @@ class M3uFu:
             self.media_list = self.media_list[-200:]
             segment = Segment(self.chunk, media, self._start)
             segment.decode()
-            if self.desegment:
+            if self.outfile:
                 print(self.hls_time, segment.pts)
                 segment.desegment(self.outfile)
                 segment.cue2sidecar(self.sidecar)
