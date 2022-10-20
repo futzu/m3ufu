@@ -418,7 +418,7 @@ class M3uFu:
             "-o",
             "--outfile",
             default=None,
-            help=" download and reassemble segments.Write to outfile. SCTE35 cues are written to sidecar.txt ",
+            help=" download and reassemble segments and write to outfile. SCTE35 cues are written to sidecar.txt ",
         )
 
         parser.add_argument(
