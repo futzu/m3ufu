@@ -10,7 +10,7 @@ The Most Advanced M3U8 Parser Available.
 * Private / Custom Tags are Supported.
 * Master Playlists are Supported.
 * HTTP(S), Multicast,UDP, and File Source URIs are Supported.
-* Full 2020 SCTE-35 Support. 
+* Full 2022 SCTE-35 Support. 
 * Base64, Bytes, and Hex formated SCTE-35 Cues are Supported.
 * Automatic Decryption of AES Encrypted Segments.
 * Desegmentation. Playlist Segments can be Reassembled into a Single Mpegts File.
