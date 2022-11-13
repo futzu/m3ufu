@@ -21,7 +21,7 @@ setuptools.setup(
     install_requires=[
         "pyaes",
         "threefive",
-        "new_reader",
+        "new_reader >= 0.1.1",
     ],
     classifiers=[
         "License :: OSI Approved :: MIT License",
