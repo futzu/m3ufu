@@ -1,6 +1,5 @@
 [Requires](#requires) | [Install](#install) | [Usage](#usage) | [Output](#output) | [SCTE-35](#scte-35) | [AES Decrypt](#automatic-aes-decryption) | [Super Kabuki](https://github.com/futzu/threefive/blob/master/superkabuki.md)
 
-![image](https://user-images.githubusercontent.com/52701496/197021028-adde0a1d-2258-43a6-88dc-563a0a8d5c64.png)
 # M3uFu
 The Most Advanced M3U8 Parser Available.
 
