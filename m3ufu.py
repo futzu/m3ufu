@@ -20,7 +20,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "53"
+MAINTAINENCE = "55"
 
 
 def version():
@@ -226,7 +226,7 @@ class Segment:
     and associated data
     """
 
-    def __init__(self, lines, media_uri, start):
+    def __init__(self, lines, media_uri, start, base_uri):
         self._lines = lines
         self.media = media_uri
         self.pts = None
@@ -237,6 +237,7 @@ class Segment:
         self.cue_data = None
         self.tags = {}
         self.tmp = None
+        self.base_uri = base_uri
 
     def __repr__(self):
         return str(self.__dict__)
@@ -350,6 +351,8 @@ class Segment:
         if "#EXT-X-KEY" in self.tags:
             if "URI" in self.tags["#EXT-X-KEY"]:
                 key_uri = self.tags["#EXT-X-KEY"]["URI"]
+                if not key_uri.startswith("http"):
+                    key_uri = self.base_uri + key_uri
                 if "IV" in self.tags["#EXT-X-KEY"]:
                     iv = self.tags["#EXT-X-KEY"]["IV"]
                     decryptr = AESDecrypt(self.media, key_uri, iv)
@@ -485,7 +488,7 @@ class M3uFu:
         if media not in self.media_list:
             self.media_list.append(media)
             self.media_list = self.media_list[-200:]
-            segment = Segment(self.chunk, media, self._start)
+            segment = Segment(self.chunk, media, self._start, self.base_uri)
             segment.decode()
             if self.outfile:
                 print(self.hls_time, segment.pts)
@@ -545,7 +548,6 @@ class M3uFu:
                     "media": [seg.kv_clean() for seg in self.segments],
                 }
                 print(json.dumps(jason, indent=4))
-
 
 
 def cli():
