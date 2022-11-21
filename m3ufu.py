@@ -20,7 +20,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "51"
+MAINTAINENCE = "53"
 
 
 def version():
@@ -391,6 +391,7 @@ class M3uFu:
         self.headers = {}
         self.outfile = None
         self.sidecar = "sidecar.txt"
+        self.desegment = False
         self._parse_args()
         if self.desegment and os.path.exists(self.outfile):
             os.unlink(self.outfile)
