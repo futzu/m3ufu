@@ -266,3 +266,4 @@ a@fumatica:~/m3u8fu$ pypy3  m3ufu.py ../threefive/master.m3u8
         },
  
 ```
+![image](https://user-images.githubusercontent.com/52701496/203175735-d2f7c6b9-f45a-4e2b-9c81-86babc28576e.png)
