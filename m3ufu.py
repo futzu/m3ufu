@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import sys
+import time
 import pyaes
 import threefive
 from new_reader import reader
@@ -20,7 +21,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "55"
+MAINTAINENCE = "57"
 
 
 def version():
@@ -60,27 +61,68 @@ SEGMENT_TAGS = (
 HEADER_TAGS = BASIC_TAGS + MULTI_TAGS + MEDIA_TAGS + SEGMENT_TAGS
 
 
+def atoif(value):
+    """
+    atoif converts ascii to (int|float)
+    """
+    if "." in value:
+        try:
+            value = float(value)
+        finally:
+            return value
+    else:
+        try:
+            value = int(value)
+        finally:
+            return value
+
+
+class AESDecrypt:
+    """
+    AESDecrypt decrypts AES encrypted segments
+    and returns a file path to the converted segment.
+    """
+
+    def __init__(self, seg_uri, key_uri, iv):
+        self.seg_uri = seg_uri
+        self.key_uri = key_uri
+        self.key = None
+        self.iv = None
+        self.media = None
+        self._mk_media()
+        self.iv = int.to_bytes(int(iv, 16), 16, byteorder="big")
+        self._aes_get_key()
+
+    def _mk_media(self):
+        self.media = "noaes-"
+        self.media += self.seg_uri.rsplit("/", 1)[-1]
+
+    def _aes_get_key(self):
+        with reader(self.key_uri) as quay:
+            self.key = quay.read()
+
+    def decrypt(self):
+        mode = pyaes.AESModeOfOperationCBC(self.key, iv=self.iv)
+        with open(self.media, "wb") as outfile, reader(self.seg_uri) as infile:
+            pyaes.decrypt_stream(mode, infile, outfile)
+        return self.media
+
+
 class TagParser:
     """
     TagParser parses all HLS Tags as of the latest RFC.
     Custom tags will also be parsed if possible.
     Parsed tags are stored in the Dict TagParser.tags.
     TagParser is used by the Segment class.
-
     Example 1:
-
         #EXT-X-STREAM-INF:AVERAGE-BANDWIDTH=2030321,BANDWIDTH=2127786,CODECS="avc1.4D401F,mp4a.40.2",RESOLUTION=768x432,CLOSED-CAPTIONS="text"
-
                 TagParser.tags["#EXT-X-STREAM-INF"]= {"CLOSED-CAPTIONS": "text",
                                                         "RESOLUTION": "768x432",
                                                         "CODECS": "avc1.4D401F,mp4a.40.2",
                                                         "BANDWIDTH": 2127786,
                                                         "AVERAGE-BANDWIDTH": 2030321}
-
     Example 2:
-
         #EXT-X-CUE-OUT-CONT:ElapsedTime=21.000,Duration=30,SCTE35=/DAnAAAAAAAAAP/wBQb+AGb/MAARAg9DVUVJAAAAAn+HCQA0AALMua1L
-
                 TagParser.tags["#EXT-X-CUE-OUT-CONT"] = {"SCTE35": "/DAnAAAAAAAAAP/wBQb+AGb/MAARAg9DVUVJAAAAAn+HCQA0AALMua1L",
                                                         "Duration": 30,
                                                         "ElapsedTime": 21.0}
@@ -92,26 +134,14 @@ class TagParser:
             self._parse_tags(line)
 
     @staticmethod
-    def atoif(value):
-        """
-        atoif converts ascii to (int|float)
-        """
-        if "." in value:
-            try:
-                value = float(value)
-            finally:
-                return value
-        else:
-            try:
-                value = int(value)
-            finally:
-                return value
-
-    @staticmethod
     def _strip_last_comma(tail):
         if tail.endswith(","):
             tail = tail[:-1]
         return tail
+
+    def _oated(self, tag, line):
+        vee = line.split(",", 1)[0]
+        self.tags[tag] = vee
 
     def _parse_tags(self, line):
         """
@@ -123,6 +153,9 @@ class TagParser:
             return
         tag, tail = line.split(":", 1)
         self.tags[tag] = {}
+        if tag == "#EXT-OATCLS-SCTE35":
+            self._oated(tag, tail)
+            return
         self._split_tail(tag, tail)
 
     def _split_tail(self, tag, tail):
@@ -132,7 +165,7 @@ class TagParser:
         while tail:
             tail = self._strip_last_comma(tail)
             if "=" not in tail:
-                self.tags[tag] = self.atoif(tail)
+                self.tags[tag] = atoif(tail)
                 return
             tail, value = self._split_value(tag, tail)
             tail = self._split_key(tail, tag, value)
@@ -142,7 +175,8 @@ class TagParser:
         """
         _split_key splits off the last attribute key
         """
-        #   if tail:
+        if not tail:
+            return
         splitup = tail.rsplit(",", 1)
         if len(splitup) == 2:
             tail, key = splitup
@@ -181,43 +215,17 @@ class TagParser:
         _unquoted handles unquoted attributes
         """
         value = None
+        hold = ""
+        while tail.endswith("="):
+            hold += tail[-1]
+            tail = tail[:-1]
         try:
             tail, value = tail.rsplit("=", 1)
-            value = self.atoif(value)
+            value += hold
+            value = atoif(value)
         except:
             tail = None
         return tail, value
-
-
-class AESDecrypt:
-    """
-    AESDecrypt decrypts AES encrypted segments
-    and returns a file path to the converted segment.
-    """
-
-    def __init__(self, seg_uri, key_uri, iv):
-        self.seg_uri = seg_uri
-        self.key_uri = key_uri
-        self.key = None
-        self.iv = None
-        self.media = None
-        self._mk_media()
-        self.iv = int.to_bytes(int(iv, 16), 16, byteorder="big")
-        self._aes_get_key()
-
-    def _mk_media(self):
-        self.media = "noaes-"
-        self.media += self.seg_uri.rsplit("/", 1)[-1]
-
-    def _aes_get_key(self):
-        with reader(self.key_uri) as quay:
-            self.key = quay.read()
-
-    def decrypt(self):
-        mode = pyaes.AESModeOfOperationCBC(self.key, iv=self.iv)
-        with open(self.media, "wb") as outfile, reader(self.seg_uri) as infile:
-            pyaes.decrypt_stream(mode, infile, outfile)
-        return self.media
 
 
 class Segment:
@@ -238,6 +246,8 @@ class Segment:
         self.tags = {}
         self.tmp = None
         self.base_uri = base_uri
+        self.last_iv = None
+        self.last_key_uri = None
 
     def __repr__(self):
         return str(self.__dict__)
@@ -276,7 +286,6 @@ class Segment:
             strm.decode(func=None)
             if len(strm.start.values()) > 0:
                 pts_start = strm.start.popitem()[1]
-                # print("PTS_START",pts_start)
             self.start = self.pts = round(pts_start / 90000.0, 6)
         except:
             pass
@@ -292,16 +301,14 @@ class Segment:
         return media_file
 
     def desegment(self, outfile):
-        try:
-            with reader(self.media_file()) as infile:
-                with open(outfile, "ab") as out:
-                    out.write(infile.read())
-        finally:
-            return
+        with reader(self.media_file()) as infile:
+            data = infile.read()
+        with open(outfile, "ab") as out:
+            out.write(data)
 
     def cue2sidecar(self, sidecar):
         if self.cue:
-            with open(sidecar, "w+") as out:
+            with open(sidecar, "a") as out:
                 out.write(f"{self.start},{self.cue}\n")
 
     def _extinf(self):
@@ -310,13 +317,14 @@ class Segment:
 
     def _scte35(self):
         if "#EXT-X-SCTE35" in self.tags:
-            self.cue = self.tags["#EXT-X-SCTE35"]["CUE"]
-            if "CUE-OUT" in self.tags["#EXT-X-SCTE35"]:
-                if self.tags["#EXT-X-SCTE35"]["CUE-OUT"] == "YES":
+            if "CUE" in self.tags["#EXT-X-SCTE35"]:
+                self.cue = self.tags["#EXT-X-SCTE35"]["CUE"]
+                if "CUE-OUT" in self.tags["#EXT-X-SCTE35"]:
+                    if self.tags["#EXT-X-SCTE35"]["CUE-OUT"] == "YES":
+                        self._do_cue()
+                if "#EXT-X-CUE-OUT" in self.tags:
                     self._do_cue()
-            if "#EXT-X-CUE-OUT" in self.tags:
-                self._do_cue()
-            return
+        return
         if "#EXT-X-DATERANGE" in self.tags:
             if "SCTE35-OUT" in self.tags["#EXT-X-DATERANGE"]:
                 self.cue = self.tags["#EXT-X-DATERANGE"]["SCTE35-OUT"]
@@ -331,8 +339,9 @@ class Segment:
         if "#EXT-X-CUE-OUT-CONT" in self.tags:
             try:
                 self.cue = self.tags["#EXT-X-CUE-OUT-CONT"]["SCTE35"]
-            finally:
-                return
+                self._do_cue()
+            except:
+                pass
 
     def _do_cue(self):
         """
@@ -357,6 +366,12 @@ class Segment:
                     iv = self.tags["#EXT-X-KEY"]["IV"]
                     decryptr = AESDecrypt(self.media, key_uri, iv)
                     self.tmp = decryptr.decrypt()
+                    self.last_iv = iv
+                    self.last_key_uri = key_uri
+        else:
+            if self.last_iv is not None:
+                decryptr = AESDecrypt(self.media, self.last_key_uri, self.last_iv)
+                self.tmp = decryptr.decrypt()
 
     def decode(self):
         self.tags = TagParser(self._lines).tags
@@ -370,6 +385,7 @@ class Segment:
             self.start = round(self.start, 6)
             self.end = round(self.start + self.duration, 6)
         del self._lines
+        print(json.dumps(self.kv_clean(), indent=3))
 
         return self.start
 
@@ -380,24 +396,27 @@ class M3uFu:
     """
 
     def __init__(self):
-        self.m3u8 = None
-        self.hls_time = 0.0
-        self.media_list = []
-        self._start = None
-        self.chunk = []
         self.base_uri = ""
-        self.manifest = None
-        self.segments = []
+        self.sidecar = "sidecar.txt"
         self.next_expected = 0
+        self.hls_time = 0.0
+        self.desegment = False
         self.master = False
         self.reload = True
-        self.headers = {}
+        self.m3u8 = None
+        self.manifest = None
+        self._start = None
         self.outfile = None
-        self.sidecar = "sidecar.txt"
-        self.desegment = False
+        self.media_list = []
+        self.chunk = []
+        self.segments = []
+        self.headers = {}
         self._parse_args()
         if self.desegment and os.path.exists(self.outfile):
             os.unlink(self.outfile)
+        if os.path.exists(self.sidecar):
+            with open(self.sidecar, "w+") as out:
+                pass
         if self.m3u8.startswith("http"):
             based = self.m3u8.rsplit("/", 1)
             if len(based) > 1:
@@ -433,6 +452,7 @@ class M3uFu:
             const=True,
             help="Show version",
         )
+
         args = parser.parse_args()
         self._apply_args(args)
 
@@ -490,8 +510,8 @@ class M3uFu:
             self.media_list = self.media_list[-200:]
             segment = Segment(self.chunk, media, self._start, self.base_uri)
             segment.decode()
+
             if self.outfile:
-                print(self.hls_time, segment.pts)
                 segment.desegment(self.outfile)
                 segment.cue2sidecar(self.sidecar)
             if segment.tmp:
@@ -517,6 +537,10 @@ class M3uFu:
             tag = splitline[0]
             if len(splitline) > 1:
                 val = splitline[1]
+                try:
+                    val = atoif(val)
+                except:
+                    pass
             self.headers[tag] = val
             return True
         return False
@@ -545,9 +569,9 @@ class M3uFu:
 
                 jason = {
                     "headers": self.headers,
-                    "media": [seg.kv_clean() for seg in self.segments],
                 }
-                print(json.dumps(jason, indent=4))
+                print(json.dumps(jason, indent=2))
+                time.sleep(self.headers["#EXT-X-TARGETDURATION"])
 
 
 def cli():
