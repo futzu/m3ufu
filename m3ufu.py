@@ -21,7 +21,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "57"
+MAINTAINENCE = "59"
 
 
 def version():
@@ -248,6 +248,7 @@ class Segment:
         self.base_uri = base_uri
         self.last_iv = None
         self.last_key_uri = None
+        self.debug = False
 
     def __repr__(self):
         return str(self.__dict__)
@@ -324,7 +325,6 @@ class Segment:
                         self._do_cue()
                 if "#EXT-X-CUE-OUT" in self.tags:
                     self._do_cue()
-        return
         if "#EXT-X-DATERANGE" in self.tags:
             if "SCTE35-OUT" in self.tags["#EXT-X-DATERANGE"]:
                 self.cue = self.tags["#EXT-X-DATERANGE"]["SCTE35-OUT"]
@@ -352,6 +352,8 @@ class Segment:
             try:
                 tf = threefive.Cue(self.cue)
                 tf.decode()
+                if self.debug:
+                    tf.show()
                 self.cue_data = tf.get()
             except:
                 pass
@@ -384,6 +386,10 @@ class Segment:
         if self.start:
             self.start = round(self.start, 6)
             self.end = round(self.start + self.duration, 6)
+        if self.debug:
+            print("Media: ", self.media)
+            print("Lines Read: ", self._lines)
+            print("Vars : ", vars(self))
         del self._lines
         print(json.dumps(self.kv_clean(), indent=3))
 
@@ -411,6 +417,7 @@ class M3uFu:
         self.chunk = []
         self.segments = []
         self.headers = {}
+        self.debug = False
         self._parse_args()
         if self.desegment and os.path.exists(self.outfile):
             os.unlink(self.outfile)
@@ -453,6 +460,15 @@ class M3uFu:
             help="Show version",
         )
 
+        parser.add_argument(
+            "-d",
+            "--debug",
+            action="store_const",
+            default=False,
+            const=True,
+            help="Enable debug output.",
+        )
+
         args = parser.parse_args()
         self._apply_args(args)
 
@@ -469,6 +485,9 @@ class M3uFu:
         if args.input:
             self.m3u8 = args.input
 
+    def _args_debug(self, args):
+        self.debug = args.debug
+
     def _apply_args(self, args):
         """
         _apply_args  uses command line args
@@ -477,6 +496,7 @@ class M3uFu:
         self._args_version(args)
         self._args_input(args)
         self._args_desegment(args)
+        self._args_debug(args)
 
     @staticmethod
     def _clean_line(line):
@@ -509,6 +529,8 @@ class M3uFu:
             self.media_list.append(media)
             self.media_list = self.media_list[-200:]
             segment = Segment(self.chunk, media, self._start, self.base_uri)
+            if self.debug:
+                segment.debug = True
             segment.decode()
 
             if self.outfile:
@@ -571,7 +593,8 @@ class M3uFu:
                     "headers": self.headers,
                 }
                 print(json.dumps(jason, indent=2))
-                time.sleep(self.headers["#EXT-X-TARGETDURATION"])
+                if "#EXT-X-TARGETDURATION" in self.headers:
+                    time.sleep(self.headers["#EXT-X-TARGETDURATION"])
 
 
 def cli():
