@@ -2,7 +2,7 @@
 
 # M3uFu
 The Most Advanced M3U8 Parser Available.
-### Latest Version `0.0.57`
+### Latest Version `0.0.59`
  > Q. Why is m3ufu better than other m3u8 parsers?
 
 > A. Because most parsers parse for each individual tag differently, this results in a lot of extra code,and each new tag must be specifically supported. M3ufu, in contrast, parses all tags based on the format criteria specified in the RFC. This results in a lot less code, and all HLS tags are automatically supported. 
@@ -32,17 +32,24 @@ pypy3 -mpip install m3ufu
 
 ### `Usage`:
 ```lua
-usage: m3ufu [-h] [-i INPUT] [-o OUTFILE] [-v]
+usage: m3ufu [-h] [-i INPUT] [-o OUTFILE] [-v] [-d]
 
-options:
-  -h, --help            show this help message and exit
-  -i INPUT, --input INPUT
-                        Input source, like "/home/a/vid.ts" or "udp://@235.35.3.5:3535" or
-                        "https://futzu.com/xaa.ts"
-  -o OUTFILE, --outfile OUTFILE
-                        download and reassemble segments. Write to outfile. SCTE35 cues are
-                        written to sidecar.txt
-  -v, --version         Show version
+optional arguments:
+
+ -h, --help            show this help message and exit
+ 
+ -i INPUT, --input INPUT
+                        Input source, like "/home/a/vid.ts" or 
+                        "udp://@235.35.3.5:3535" or "https://futzu.com/xaa.ts"
+
+-o OUTFILE, --outfile OUTFILE
+                        download and reassemble segments and write to outfile.
+                        SCTE35 cues are written to sidecar.txt
+
+-v, --version         Show version
+
+-d, --debug           Enable debug output.
+
 
 ```
 
