@@ -21,7 +21,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "59"
+MAINTAINENCE = "61"
 
 
 def version():
@@ -314,7 +314,7 @@ class Segment:
 
     def _extinf(self):
         if "#EXTINF" in self.tags:
-            self.duration = round(float(self.tags["#EXTINF"]), 6)
+            self.duration = round(float(self.tags["#EXTINF"].rsplit(",", 1)[0]), 6)
 
     def _scte35(self):
         if "#EXT-X-SCTE35" in self.tags:
@@ -418,16 +418,6 @@ class M3uFu:
         self.segments = []
         self.headers = {}
         self.debug = False
-        self._parse_args()
-        if self.desegment and os.path.exists(self.outfile):
-            os.unlink(self.outfile)
-        if os.path.exists(self.sidecar):
-            with open(self.sidecar, "w+") as out:
-                pass
-        if self.m3u8.startswith("http"):
-            based = self.m3u8.rsplit("/", 1)
-            if len(based) > 1:
-                self.base_uri = f"{based[0]}/"
 
     def _parse_args(self):
         """
@@ -583,6 +573,16 @@ class M3uFu:
         return True
 
     def decode(self):
+        if self.desegment and os.path.exists(self.outfile):
+            os.unlink(self.outfile)
+        if os.path.exists(self.sidecar):
+            with open(self.sidecar, "w+") as out:
+                pass
+        # if self.m3u8.startswith("http"):
+        if self.m3u8:
+            based = self.m3u8.rsplit("/", 1)
+            if len(based) > 1:
+                self.base_uri = f"{based[0]}/"
         while self.reload:
             with reader(self.m3u8) as self.manifest:
                 while self.manifest:
@@ -599,6 +599,8 @@ class M3uFu:
 
 def cli():
     fu = M3uFu()
+    fu._parse_args()
+
     fu.decode()
 
 
