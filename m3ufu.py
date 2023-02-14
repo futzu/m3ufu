@@ -21,7 +21,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "61"
+MAINTAINENCE = "63"
 
 
 def version():
@@ -314,7 +314,9 @@ class Segment:
 
     def _extinf(self):
         if "#EXTINF" in self.tags:
-            self.duration = round(float(self.tags["#EXTINF"].rsplit(",", 1)[0]), 6)
+            if isinstance(self.tags["#EXTINF"], str):
+                self.tags["#EXTINF"]=self.tags["#EXTINF"].rsplit(",", 1)[0]
+            self.duration = round(float(self.tags["#EXTINF"]), 6)
 
     def _scte35(self):
         if "#EXT-X-SCTE35" in self.tags:
