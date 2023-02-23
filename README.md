@@ -1,5 +1,20 @@
 [Requires](#requires) | [Install](#install) | [Usage](#usage) | [Output](#output) | [SCTE-35](#scte-35) | [AES Decrypt](#automatic-aes-decryption) | [Super Kabuki](https://github.com/futzu/threefive/blob/master/superkabuki.md)
 
+<details> <summary>Phase One: Expose the Pep Deep State. </h4> 
+</summary>
+
+  * [Phase One has begun!](https://github.com/python/peps/compare/main...futzu:peps:main)
+  * [PEP 668.... boo hiss! *(throws a tomato)*](https://peps.python.org/pep-0668/)
+     * Pep 668 inhibits installing packages with pip and pypy3.9,  at least on Debian. 
+     * Quick fix *(notice the use of unlink for dramatic effect)*
+   ```js
+   
+   root@debian:~# unlink /usr/lib/pypy3.9/EXTERNALLY-MANAGED
+   
+   ```
+</details>
+
+
 # M3uFu
 The Most Advanced M3U8 Parser Available.
 ### Latest Version `0.0.63`
