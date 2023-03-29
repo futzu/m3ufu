@@ -21,7 +21,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "63"
+MAINTAINENCE = "65"
 
 
 def version():
@@ -392,7 +392,7 @@ class Segment:
             print("Media: ", self.media)
             print("Lines Read: ", self._lines)
             print("Vars : ", vars(self))
-        del self._lines
+        #del self._lines
         print(json.dumps(self.kv_clean(), indent=3))
 
         return self.start
@@ -524,7 +524,6 @@ class M3uFu:
             if self.debug:
                 segment.debug = True
             segment.decode()
-
             if self.outfile:
                 segment.desegment(self.outfile)
                 segment.cue2sidecar(self.sidecar)
@@ -590,7 +589,6 @@ class M3uFu:
                 while self.manifest:
                     if not self._parse_line():
                         break
-
                 jason = {
                     "headers": self.headers,
                 }
@@ -602,7 +600,6 @@ class M3uFu:
 def cli():
     fu = M3uFu()
     fu._parse_args()
-
     fu.decode()
 
 
