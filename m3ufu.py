@@ -397,6 +397,9 @@ class Segment:
 
         return self.start
 
+    def get_lines(self):
+        return '\n'.join(self._lines)
+    
 
 class M3uFu:
     """
@@ -524,6 +527,7 @@ class M3uFu:
             if self.debug:
                 segment.debug = True
             segment.decode()
+
             if self.outfile:
                 segment.desegment(self.outfile)
                 segment.cue2sidecar(self.sidecar)
@@ -589,6 +593,7 @@ class M3uFu:
                 while self.manifest:
                     if not self._parse_line():
                         break
+
                 jason = {
                     "headers": self.headers,
                 }
@@ -600,6 +605,7 @@ class M3uFu:
 def cli():
     fu = M3uFu()
     fu._parse_args()
+
     fu.decode()
 
 
