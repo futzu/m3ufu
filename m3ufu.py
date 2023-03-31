@@ -235,7 +235,7 @@ class Segment:
     """
 
     def __init__(self, lines, media_uri, start, base_uri):
-        self._lines = lines
+        self.lines = lines
         self.media = media_uri
         self.pts = None
         self.start = start
@@ -315,7 +315,7 @@ class Segment:
     def _extinf(self):
         if "#EXTINF" in self.tags:
             if isinstance(self.tags["#EXTINF"], str):
-                self.tags["#EXTINF"]=self.tags["#EXTINF"].rsplit(",", 1)[0]
+                self.tags["#EXTINF"] = self.tags["#EXTINF"].rsplit(",", 1)[0]
             self.duration = round(float(self.tags["#EXTINF"]), 6)
 
     def _scte35(self):
@@ -378,7 +378,7 @@ class Segment:
                 self.tmp = decryptr.decrypt()
 
     def decode(self):
-        self.tags = TagParser(self._lines).tags
+        self.tags = TagParser(self.lines).tags
         self._chk_aes()
         self._extinf()
         self._scte35()
@@ -390,16 +390,16 @@ class Segment:
             self.end = round(self.start + self.duration, 6)
         if self.debug:
             print("Media: ", self.media)
-            print("Lines Read: ", self._lines)
+            print("Lines Read: ", self.lines)
             print("Vars : ", vars(self))
-        #del self._lines
+        # del self.lines
         print(json.dumps(self.kv_clean(), indent=3))
 
         return self.start
 
     def get_lines(self):
-        return '\n'.join(self._lines)
-    
+        return self.lines
+
 
 class M3uFu:
     """
