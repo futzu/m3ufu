@@ -21,7 +21,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "65"
+MAINTAINENCE = "67"
 
 
 def version():
@@ -502,11 +502,12 @@ class M3uFu:
 
     def _is_master(self, line):
         playlist = False
-        if "STREAM-INF" in line:
-            self.master = True
-            self.reload = False
-            if "URI" in line:
-                playlist = line.split('URI="')[1].split('"')[0]
+        for this in ["STREAM-INF", "EXT-X-MEDIA"]:
+            if this in line:
+                self.master = True
+                self.reload = False
+                if "URI" in line:
+                    playlist = line.split('URI="')[1].split('"')[0]
         return playlist
 
     def _set_times(self, segment):
@@ -539,11 +540,13 @@ class M3uFu:
             self._set_times(segment)
 
     def _do_media(self, line):
-        media = line
-        media = self.base_uri + media
         playlist = self._is_master(line)
         if playlist:
             media = playlist
+        else:
+            media = line
+            if self.base_uri not in line:
+               media = self.base_uri + media
         self._add_media(media)
         self.chunk = []
 
@@ -572,7 +575,11 @@ class M3uFu:
         if not self._parse_header(line):
             self._is_master(line)
             self.chunk.append(line)
-            if not line.startswith("#") or line.startswith("#EXT-X-I-FRAME-STREAM-INF"):
+            if (
+                not line.startswith("#")
+                or line.startswith("#EXT-X-I-FRAME-STREAM-INF")
+                or line.startswith("EXT-X-MEDIA")
+            ):
                 if len(line):
                     self._do_media(line)
         return True
@@ -593,7 +600,6 @@ class M3uFu:
                 while self.manifest:
                     if not self._parse_line():
                         break
-
                 jason = {
                     "headers": self.headers,
                 }
@@ -605,7 +611,6 @@ class M3uFu:
 def cli():
     fu = M3uFu()
     fu._parse_args()
-
     fu.decode()
 
 
