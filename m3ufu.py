@@ -21,7 +21,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "67"
+MAINTAINENCE = "68"
 
 
 def version():
@@ -114,18 +114,24 @@ class TagParser:
     Custom tags will also be parsed if possible.
     Parsed tags are stored in the Dict TagParser.tags.
     TagParser is used by the Segment class.
+   
+   
     Example 1:
-        #EXT-X-STREAM-INF:AVERAGE-BANDWIDTH=2030321,BANDWIDTH=2127786,CODECS="avc1.4D401F,mp4a.40.2",RESOLUTION=768x432,CLOSED-CAPTIONS="text"
-                TagParser.tags["#EXT-X-STREAM-INF"]= {"CLOSED-CAPTIONS": "text",
-                                                        "RESOLUTION": "768x432",
-                                                        "CODECS": "avc1.4D401F,mp4a.40.2",
-                                                        "BANDWIDTH": 2127786,
-                                                        "AVERAGE-BANDWIDTH": 2030321}
+      
+      #EXT-X-STREAM-INF:AVERAGE-BANDWIDTH=2030321,BANDWIDTH=2127786,CODECS="avc1.4D401F,mp4a.40.2",RESOLUTION=768x432,CLOSED-CAPTIONS="text"
+              
+      TagParser.tags["#EXT-X-STREAM-INF"]= { "CLOSED-CAPTIONS": "text",
+                                             "RESOLUTION": "768x432",
+                                             "CODECS": "avc1.4D401F,mp4a.40.2",
+                                             "BANDWIDTH": 2127786,
+                                             "AVERAGE-BANDWIDTH": 2030321}
     Example 2:
-        #EXT-X-CUE-OUT-CONT:ElapsedTime=21.000,Duration=30,SCTE35=/DAnAAAAAAAAAP/wBQb+AGb/MAARAg9DVUVJAAAAAn+HCQA0AALMua1L
-                TagParser.tags["#EXT-X-CUE-OUT-CONT"] = {"SCTE35": "/DAnAAAAAAAAAP/wBQb+AGb/MAARAg9DVUVJAAAAAn+HCQA0AALMua1L",
-                                                        "Duration": 30,
-                                                        "ElapsedTime": 21.0}
+    
+      #EXT-X-CUE-OUT-CONT:ElapsedTime=21.000,Duration=30,SCTE35=/DAnAAAAAAAAAP/wBQb+AGb/MAARAg9DVUVJAAAAAn+HCQA0AALMua1L
+               
+      TagParser.tags["#EXT-X-CUE-OUT-CONT"] = { "SCTE35": "/DAnAAAAAAAAAP/wBQb+AGb/MAARAg9DVUVJAAAAAn+HCQA0AALMua1L",
+                                                "Duration": 30,
+                                                "ElapsedTime": 21.0}
     """
 
     def __init__(self, lines=None):
@@ -216,6 +222,7 @@ class TagParser:
         """
         value = None
         hold = ""
+        # = is only allowed as a suffix in base64
         while tail.endswith("="):
             hold += tail[-1]
             tail = tail[:-1]
@@ -246,6 +253,7 @@ class Segment:
         self.tags = {}
         self.tmp = None
         self.base_uri = base_uri
+        self.relative_uri = media_uri.removeprefix(base_uri)
         self.last_iv = None
         self.last_key_uri = None
         self.debug = False
@@ -546,7 +554,7 @@ class M3uFu:
         else:
             media = line
             if self.base_uri not in line:
-               media = self.base_uri + media
+                media = self.base_uri + media
         self._add_media(media)
         self.chunk = []
 
