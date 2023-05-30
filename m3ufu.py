@@ -21,7 +21,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "68"
+MAINTAINENCE = "69"
 
 
 def version():
@@ -114,21 +114,21 @@ class TagParser:
     Custom tags will also be parsed if possible.
     Parsed tags are stored in the Dict TagParser.tags.
     TagParser is used by the Segment class.
-   
-   
+
+
     Example 1:
-      
+
       #EXT-X-STREAM-INF:AVERAGE-BANDWIDTH=2030321,BANDWIDTH=2127786,CODECS="avc1.4D401F,mp4a.40.2",RESOLUTION=768x432,CLOSED-CAPTIONS="text"
-              
+
       TagParser.tags["#EXT-X-STREAM-INF"]= { "CLOSED-CAPTIONS": "text",
                                              "RESOLUTION": "768x432",
                                              "CODECS": "avc1.4D401F,mp4a.40.2",
                                              "BANDWIDTH": 2127786,
                                              "AVERAGE-BANDWIDTH": 2030321}
     Example 2:
-    
+
       #EXT-X-CUE-OUT-CONT:ElapsedTime=21.000,Duration=30,SCTE35=/DAnAAAAAAAAAP/wBQb+AGb/MAARAg9DVUVJAAAAAn+HCQA0AALMua1L
-               
+
       TagParser.tags["#EXT-X-CUE-OUT-CONT"] = { "SCTE35": "/DAnAAAAAAAAAP/wBQb+AGb/MAARAg9DVUVJAAAAAn+HCQA0AALMua1L",
                                                 "Duration": 30,
                                                 "ElapsedTime": 21.0}
@@ -189,6 +189,8 @@ class TagParser:
         else:
             key = splitup[0]
             tail = None
+        if "=" in key:
+            key,value = key.split("=",1)
         self.tags[tag][key] = value
         return tail
 
