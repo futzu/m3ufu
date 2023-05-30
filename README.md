@@ -1,23 +1,9 @@
 [Requires](#requires) | [Install](#install) | [Usage](#usage) | [Output](#output) | [SCTE-35](#scte-35) | [AES Decrypt](#automatic-aes-decryption) | [Super Kabuki](https://github.com/futzu/threefive/blob/master/superkabuki.md)
 
-<details> <summary>Phase One: Expose the Pep Deep State. </h4> 
-</summary>
-
-  * [Phase One has begun!](https://github.com/python/peps/compare/main...futzu:peps:main)
-  * [PEP 668.... boo hiss! *(throws a tomato)*](https://peps.python.org/pep-0668/)
-     * Pep 668 inhibits installing packages with pip and pypy3.9,  at least on Debian. 
-     * Quick fix *(notice the use of unlink for dramatic effect)*
-   ```js
-   
-   root@debian:~# unlink /usr/lib/pypy3.9/EXTERNALLY-MANAGED
-   
-   ```
-</details>
-
 
 # M3uFu
 The Most Advanced M3U8 Parser Available.
-### Latest Version `0.0.63`
+### Latest Version `0.0.69`
  > Q. Why is m3ufu better than other m3u8 parsers?
 
 > A. Because most parsers parse for each individual tag differently, this results in a lot of extra code,and each new tag must be specifically supported. M3ufu, in contrast, parses all tags based on the format criteria specified in the RFC. This results in a lot less code, and all HLS tags are automatically supported. 
