@@ -22,7 +22,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "71"
+MAINTAINENCE = "73"
 
 
 def version():
@@ -430,10 +430,11 @@ class M3uFu:
         self._start = None
         self.outfile = None
         self.media_list = deque()
-        self.chunk = deque()
+        self.chunk = []
+        self.segments = deque()
         self.headers = {}
         self.debug = False
-        self.window_size = None
+        self.window_size = 100
         with open(self.sidecar, "w+") as sidecar:  # touch sidecar
             pass
 
@@ -538,6 +539,8 @@ class M3uFu:
             self.media_list.append(media)
             while len(self.media_list) > self.window_size:
                 self.media_list.popleft()
+            while len(self.segments) > self.window_size:
+                self.segments.popleft()
             segment = Segment(self.chunk, media, self._start, self.base_uri)
             if self.debug:
                 segment.debug = True
@@ -548,6 +551,7 @@ class M3uFu:
             if segment.tmp:
                 os.unlink(segment.tmp)
                 del segment.tmp
+            self.segments.append(segment)
             self._set_times(segment)
 
     def _do_media(self, line):
@@ -560,7 +564,7 @@ class M3uFu:
                 if 'http' not in line:
                     media = self.base_uri + media
         self._add_media(media)
-        self.chunk = deque()
+        self.chunk = []
 
     def _parse_header(self, line):
         splitline = line.split(":", 1)
