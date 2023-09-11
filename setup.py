@@ -20,7 +20,7 @@ setuptools.setup(
     scripts=['bin/m3ufu'],
     install_requires=[
         "pyaes",
-        "threefive >= 2.4.1",
+        "threefive >= 2.4.9",
         "new_reader >= 0.1.7",
     ],
     classifiers=[
