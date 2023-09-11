@@ -2,6 +2,7 @@
  m3ufu
 """
 import argparse
+from collections import deque
 import json
 import os
 import sys
@@ -21,7 +22,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "69"
+MAINTAINENCE = "71"
 
 
 def version():
@@ -428,11 +429,13 @@ class M3uFu:
         self.manifest = None
         self._start = None
         self.outfile = None
-        self.media_list = []
-        self.chunk = []
-        self.segments = []
+        self.media_list = deque()
+        self.chunk = deque()
         self.headers = {}
         self.debug = False
+        self.window_size = None
+        with open(self.sidecar, "w+") as sidecar:  # touch sidecar
+            pass
 
     def _parse_args(self):
         """
@@ -533,20 +536,18 @@ class M3uFu:
     def _add_media(self, media):
         if media not in self.media_list:
             self.media_list.append(media)
-            self.media_list = self.media_list[-200:]
+            while len(self.media_list) > self.window_size:
+                self.media_list.popleft()
             segment = Segment(self.chunk, media, self._start, self.base_uri)
             if self.debug:
                 segment.debug = True
             segment.decode()
-
             if self.outfile:
                 segment.desegment(self.outfile)
                 segment.cue2sidecar(self.sidecar)
             if segment.tmp:
                 os.unlink(segment.tmp)
                 del segment.tmp
-
-            self.segments.append(segment)
             self._set_times(segment)
 
     def _do_media(self, line):
@@ -556,9 +557,10 @@ class M3uFu:
         else:
             media = line
             if self.base_uri not in line:
-                media = self.base_uri + media
+                if 'http' not in line:
+                    media = self.base_uri + media
         self._add_media(media)
-        self.chunk = []
+        self.chunk = deque()
 
     def _parse_header(self, line):
         splitline = line.split(":", 1)
@@ -575,11 +577,11 @@ class M3uFu:
             return True
         return False
 
-    def _parse_line(self):
-        line = self.manifest.readline()
+    def _parse_line(self,line):
         if not line:
             return False
         line = self._clean_line(line)
+
         if "ENDLIST" in line:
             self.reload = False
         if not self._parse_header(line):
@@ -594,21 +596,23 @@ class M3uFu:
                     self._do_media(line)
         return True
 
+    def _get_window_size(self,m3u8_lines):
+        if not self.window_size:
+            self.window_size = len([line for line in m3u8_lines if b"#EXTINF:" in line])
+
     def decode(self):
         if self.desegment and os.path.exists(self.outfile):
             os.unlink(self.outfile)
-        if os.path.exists(self.sidecar):
-            with open(self.sidecar, "w+") as out:
-                pass
-        # if self.m3u8.startswith("http"):
         if self.m3u8:
             based = self.m3u8.rsplit("/", 1)
             if len(based) > 1:
                 self.base_uri = f"{based[0]}/"
         while self.reload:
             with reader(self.m3u8) as self.manifest:
-                while self.manifest:
-                    if not self._parse_line():
+                m3u8_lines = self.manifest.readlines()
+                self._get_window_size(m3u8_lines)
+                for line in m3u8_lines:
+                    if not self._parse_line(line):
                         break
                 jason = {
                     "headers": self.headers,
