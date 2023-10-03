@@ -59,7 +59,7 @@ SEGMENT_TAGS = (
     "#EXT-X-PROGRAM-DATE-TIME",
 )
 
-HEADER_TAGS = BASIC_TAGS + MULTI_TAGS + MEDIA_TAGS + SEGMENT_TAGS
+HEADER_TAGS = BASIC_TAGS + MULTI_TAGS + MEDIA_TAGS #+ SEGMENT_TAGS
 
 
 def atoif(value):
@@ -296,9 +296,10 @@ class Segment:
         try:
             strm = threefive.Segment(self.media_file())
             strm.decode(func=None)
-            if len(strm.start.values()) > 0:
-                pts_start = strm.start.popitem()[1]
-            self.start = self.pts = round(pts_start / 90000.0, 6)
+            pts_start = strm.pts_start
+            print(pts_start)
+            self.pts = round(pts_start, 6)
+            self.start = self.pts
         except:
             pass
 
@@ -394,11 +395,9 @@ class Segment:
         self._extinf()
         self._scte35()
         self._get_pts_start()
-        if self.pts:
-            self.start = self.pts
-        if self.start:
-            self.start = round(self.start, 6)
-            self.end = round(self.start + self.duration, 6)
+       # if self.pts:
+           # self.start = self.pts
+        self.end = round(self.start + self.duration, 6)
         if self.debug:
             print("Media: ", self.media)
             print("Lines Read: ", self.lines)
