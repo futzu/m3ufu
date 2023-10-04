@@ -627,7 +627,7 @@ class M3uFu:
 
 def cli():
     fu = M3uFu()
-    fu._parse_args()/DBAAAAAAyiYAAAABQb/akxwcAAqAihDVUVJ/////3//AAZv8wABFG1zbmJjX0VQMDM4MTMwODMwNjYwEAEAQKSfuA==
+    fu._parse_args()
     fu.decode()
 
 
