@@ -622,12 +622,12 @@ class M3uFu:
                 }
                 print(json.dumps(jason, indent=2))
                 if "#EXT-X-TARGETDURATION" in self.headers:
-                    time.sleep(self.headers["#EXT-X-TARGETDURATION"])
+                    time.sleep(self.headers["#EXT-X-TARGETDURATION"]/2)
 
 
 def cli():
     fu = M3uFu()
-    fu._parse_args()
+    fu._parse_args()/DBAAAAAAyiYAAAABQb/akxwcAAqAihDVUVJ/////3//AAZv8wABFG1zbmJjX0VQMDM4MTMwODMwNjYwEAEAQKSfuA==
     fu.decode()
 
 
