@@ -22,7 +22,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "77"
+MAINTAINENCE = "79"
 
 
 def version():
@@ -395,9 +395,12 @@ class Segment:
         self._extinf()
         self._scte35()
         self._get_pts_start()
-       # if self.pts:
-           # self.start = self.pts
-        self.end = round(self.start + self.duration, 6)
+        if self.pts:
+            self.start = self.pts
+        if self.start:
+            self.end = round(self.start + self.duration, 6)
+        else:
+            self.start = 0
         if self.debug:
             print("Media: ", self.media)
             print("Lines Read: ", self.lines)
