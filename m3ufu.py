@@ -22,7 +22,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "79"
+MAINTAINENCE = "81"
 
 
 def version():
@@ -59,7 +59,7 @@ SEGMENT_TAGS = (
     "#EXT-X-PROGRAM-DATE-TIME",
 )
 
-HEADER_TAGS = BASIC_TAGS + MULTI_TAGS + MEDIA_TAGS #+ SEGMENT_TAGS
+HEADER_TAGS = BASIC_TAGS + MULTI_TAGS + MEDIA_TAGS  # + SEGMENT_TAGS
 
 
 def atoif(value):
@@ -191,7 +191,7 @@ class TagParser:
             key = splitup[0]
             tail = None
         if "=" in key:
-            key,value = key.split("=",1)
+            key, value = key.split("=", 1)
         self.tags[tag][key] = value
         return tail
 
@@ -563,7 +563,7 @@ class M3uFu:
         else:
             media = line
             if self.base_uri not in line:
-                if 'http' not in line:
+                if "http" not in line:
                     media = self.base_uri + media
         self._add_media(media)
         self.chunk = []
@@ -583,7 +583,7 @@ class M3uFu:
             return True
         return False
 
-    def _parse_line(self,line):
+    def _parse_line(self, line):
         if not line:
             return False
         line = self._clean_line(line)
@@ -602,7 +602,7 @@ class M3uFu:
                     self._do_media(line)
         return True
 
-    def _get_window_size(self,m3u8_lines):
+    def _get_window_size(self, m3u8_lines):
         if not self.window_size:
             self.window_size = len([line for line in m3u8_lines if b"#EXTINF:" in line])
 
@@ -624,8 +624,9 @@ class M3uFu:
                     "headers": self.headers,
                 }
                 print(json.dumps(jason, indent=2))
-                if "#EXT-X-TARGETDURATION" in self.headers:
-                    time.sleep(self.headers["#EXT-X-TARGETDURATION"]/2)
+                if self.reload =True:
+                    if "#EXT-X-TARGETDURATION" in self.headers:
+                        time.sleep(self.headers["#EXT-X-TARGETDURATION"] / 2)
 
 
 def cli():
