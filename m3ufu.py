@@ -22,7 +22,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "81"
+MAINTAINENCE = "83"
 
 
 def version():
@@ -256,7 +256,7 @@ class Segment:
         self.tags = {}
         self.tmp = None
         self.base_uri = base_uri
-        self.relative_uri = media_uri.removeprefix(base_uri)
+        self.relative_uri = media_uri.replace(base_uri,'')
         self.last_iv = None
         self.last_key_uri = None
         self.debug = False
@@ -549,7 +549,7 @@ class M3uFu:
             segment.decode()
             if self.outfile:
                 segment.desegment(self.outfile)
-                segment.cue2sidecar(self.sidecar)
+            segment.cue2sidecar(self.sidecar)
             if segment.tmp:
                 os.unlink(segment.tmp)
                 del segment.tmp
@@ -624,7 +624,7 @@ class M3uFu:
                     "headers": self.headers,
                 }
                 print(json.dumps(jason, indent=2))
-                if self.reload ==True:
+                if self.reload == True:
                     if "#EXT-X-TARGETDURATION" in self.headers:
                         time.sleep(self.headers["#EXT-X-TARGETDURATION"] / 2)
 
