@@ -3,10 +3,8 @@
 
 # M3uFu
 The Most Advanced M3U8 Parser Available.
-## Latest Version `v0.0.83`
- > Q. Why is m3ufu better than other m3u8 parsers?
-
-> A. Because most parsers parse for each individual tag differently, this results in a lot of extra code and each new tag must be specifically supported. In contrast, m3ufu parses all tags based on the format criteria specified in the RFC. This results in a lot less code, and all HLS tags are automatically supported. 
+## Latest Version `v0.0.85`
+* __Critical__ TagParser update to handle tags without values.
 
 ### `Features:`
 * All HLS Tags are Supported.
