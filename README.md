@@ -3,7 +3,7 @@
 
 # M3uFu
 The Most Advanced M3U8 Parser Available.
-## Latest Version `v0.0.85`  __Critical Update__
+## Latest Version `v0.0.87`  __Critical Update__
 * TagParser update to handle tags without values.
 
 ### `Features:`
