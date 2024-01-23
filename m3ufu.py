@@ -642,7 +642,7 @@ class M3uFu:
                 }
                 if not self.shush:
                     print(json.dumps(jason, indent=2))
-                if self.reload == True:
+                if self.reload:
                     if "#EXT-X-TARGETDURATION" in self.headers:
                         time.sleep(self.headers["#EXT-X-TARGETDURATION"] / 2)
 
