@@ -22,7 +22,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "83"
+MAINTAINENCE = "85"
 
 
 def version():
@@ -256,7 +256,7 @@ class Segment:
         self.tags = {}
         self.tmp = None
         self.base_uri = base_uri
-        self.relative_uri = media_uri.replace(base_uri,'')
+        self.relative_uri = media_uri.replace(base_uri, "")
         self.last_iv = None
         self.last_key_uri = None
         self.debug = False
@@ -297,7 +297,7 @@ class Segment:
             strm = threefive.Segment(self.media_file())
             strm.decode(func=None)
             pts_start = strm.pts_start
-            print(pts_start)
+          #  print(pts_start)
             self.pts = round(pts_start, 6)
             self.start = self.pts
         except:
@@ -406,7 +406,6 @@ class Segment:
             print("Lines Read: ", self.lines)
             print("Vars : ", vars(self))
         # del self.lines
-        print(json.dumps(self.kv_clean(), indent=3))
 
         return self.start
 
@@ -419,9 +418,9 @@ class M3uFu:
     M3u8 parser.
     """
 
-    def __init__(self):
+    def __init__(self,shush=False):
         self.base_uri = ""
-        self.sidecar = "sidecar.txt"
+        self.sidecar = None
         self.next_expected = 0
         self.hls_time = 0.0
         self.desegment = False
@@ -436,9 +435,9 @@ class M3uFu:
         self.segments = deque()
         self.headers = {}
         self.debug = False
-        self.window_size = 100
-        with open(self.sidecar, "w+") as sidecar:  # touch sidecar
-            pass
+        self.window_size = 10000
+        self.shush = shush
+
 
     def _parse_args(self):
         """
@@ -453,6 +452,12 @@ class M3uFu:
                                     or "udp://@235.35.3.5:3535"
                                     or "https://futzu.com/xaa.ts"
                                     """,
+        )
+        parser.add_argument(
+            "-s",
+            "--sidecar",
+            default=None,
+            help="generate a SCTE35 sidecar file of pts, cue pairs and write them to this file ",
         )
 
         parser.add_argument(
@@ -499,6 +504,12 @@ class M3uFu:
     def _args_debug(self, args):
         self.debug = args.debug
 
+    def _args_sidecar(self,args):
+        if args.sidecar:
+            self.sidecar = args.sidecar
+            with open(self.sidecar, "w+") as sidecar:  # touch sidecar
+                pass
+
     def _apply_args(self, args):
         """
         _apply_args  uses command line args
@@ -507,6 +518,7 @@ class M3uFu:
         self._args_version(args)
         self._args_input(args)
         self._args_desegment(args)
+        self._args_sidecar(args)
         self._args_debug(args)
 
     @staticmethod
@@ -547,9 +559,13 @@ class M3uFu:
             if self.debug:
                 segment.debug = True
             segment.decode()
+            if not self.shush:
+                print(json.dumps(segment.kv_clean(), indent=3))
+
             if self.outfile:
                 segment.desegment(self.outfile)
-            segment.cue2sidecar(self.sidecar)
+            if self.sidecar:
+                segment.cue2sidecar(self.sidecar)
             if segment.tmp:
                 os.unlink(segment.tmp)
                 del segment.tmp
@@ -622,8 +638,10 @@ class M3uFu:
                         break
                 jason = {
                     "headers": self.headers,
+                    "segments": [segment.kv_clean() for segment in self.segments],
                 }
-                print(json.dumps(jason, indent=2))
+                if not self.shush:
+                    print(json.dumps(jason, indent=2))
                 if self.reload == True:
                     if "#EXT-X-TARGETDURATION" in self.headers:
                         time.sleep(self.headers["#EXT-X-TARGETDURATION"] / 2)
