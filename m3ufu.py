@@ -22,7 +22,7 @@ version you have installed.
 
 MAJOR = "0"
 MINOR = "0"
-MAINTAINENCE = "85"
+MAINTAINENCE = "87"
 
 
 def version():
@@ -156,7 +156,10 @@ class TagParser:
         associated attributes
         """
         line = line.replace(" ", "")
+        if line[0] !='#':
+            return
         if ":" not in line:
+            self.tags[line] = None
             return
         tag, tail = line.split(":", 1)
         self.tags[tag] = {}
