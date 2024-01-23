@@ -297,7 +297,7 @@ class Segment:
             strm = threefive.Segment(self.media_file())
             strm.decode(func=None)
             pts_start = strm.pts_start
-          #  print(pts_start)
+            #  print(pts_start)
             self.pts = round(pts_start, 6)
             self.start = self.pts
         except:
@@ -418,7 +418,7 @@ class M3uFu:
     M3u8 parser.
     """
 
-    def __init__(self,shush=False):
+    def __init__(self, shush=False):
         self.base_uri = ""
         self.sidecar = None
         self.next_expected = 0
@@ -437,7 +437,6 @@ class M3uFu:
         self.debug = False
         self.window_size = 10000
         self.shush = shush
-
 
     def _parse_args(self):
         """
@@ -504,7 +503,7 @@ class M3uFu:
     def _args_debug(self, args):
         self.debug = args.debug
 
-    def _args_sidecar(self,args):
+    def _args_sidecar(self, args):
         if args.sidecar:
             self.sidecar = args.sidecar
             with open(self.sidecar, "w+") as sidecar:  # touch sidecar
