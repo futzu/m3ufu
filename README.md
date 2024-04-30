@@ -1,9 +1,6 @@
 [Requires](#requires) | [Install](#install) | [Usage](#usage) | [Output](#output) | [SCTE-35](#scte-35) | [AES Decrypt](#automatic-aes-decryption) | [Super Kabuki](https://github.com/futzu/threefive/blob/master/superkabuki.md)
 
 
-### Heads up. This is no longer maintained. It's been fun, but it's time for me to go find a real job. ~ Adrian 02/15/2024
-
-
 # M3uFu
 The Most Advanced M3U8 Parser Available.
 ## Latest Version `v0.0.89`  __Critical Update__
