@@ -29,6 +29,14 @@ python3 -mpip install  m3ufu
 
 pypy3 -mpip install m3ufu
 ```
+## Heads up! upgrade threefive to  `2`.`4`.`55`
+```js
+python3 -mpip install --upgrade threefive
+```
+* and / or 
+```js
+pypy3 -mpip install --upgrade threefive
+```
 
 ### `Usage`:
 ```lua
